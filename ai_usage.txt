@@ -1,5 +1,5 @@
-- В першу чергу я використовував ШІ як тутора по мові Python. Задавав питання щодо методів та що вони роблять.
-- Також ШІ був використаний як аналізотора потенційних помилок в моєму коді. Я надавав йому свій код і попросив найти слабкі місця та потенційні баги.
-- Також ШІ був використаний дял імлементації деякий простих методів. Наприклад: is_alpha, is_digit.
-- Також ШІ був використаний для побудови тестів (valid and fail) за допомогою pytest
-- Також ШІ був використаний для написання README.md
+- First of all, I used AI as a tutor in Python. I asked questions about methods and what they do.
+- AI was also used as an analyzer of potential errors in my code. I gave it my code and asked it to find weak spots and potential bugs.
+- AI was also used to implement some simple methods. For example: is_alpha, is_digit.
+- AI was also used to build tests (valid and fail) using pytest
+- AI was also used to write README.md
