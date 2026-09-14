@@ -54,7 +54,7 @@ def declare(env, name):
     env.symbols[name] = env.builder.alloca(env.I32, name=name)
 
 def exit_program(env, variable):
-    env.builder.call(env.printf, [env.builder.bitcast(env.fmt, env.P), env.builder.load(env.symbols[variable])]) 
+    env.builder.call(env.printf, [env.builder.bitcast(env.fmt, env.P), env.builder.load(env.symbols[variable])])
     env.builder.ret(ir.Constant(env.I32, 0))
 
 def get_constant(env, operand):
