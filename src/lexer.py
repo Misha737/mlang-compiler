@@ -31,6 +31,7 @@ def lex(data: bytes):
     tokens = []
     state, start, line, col = "START", 0, 1, 1
     count_brackets = 0
+    open_brace_pos = (0, 0)
     i = 0
 
     def get_start_col():
@@ -43,13 +44,15 @@ def lex(data: bytes):
             elif b in (32, 9): pass # space, tab
             elif b == 10:
                 if count_brackets != 0:
-                    raise CompileError(f"line {line}:{col}: '{{' is not closed before the end of the line")
+                    oline, ocol = open_brace_pos
+                    raise CompileError(f"line {oline}:{ocol}: '{{' is not closed before the end of the line")
                 lines.append(tokens); tokens = []; line += 1; col = 0
             elif is_alpha(b): state, start = "IDENT", i
             elif is_digit(b): state, start = "NUMBER", i
             elif b == ord("{"):
                 tokens.append(Token("lbrace", "{", line, col))
                 count_brackets += 1
+                open_brace_pos = (line, col)
             elif b == ord("}"):
                 tokens.append(Token("rbrace", "}", line, col))
                 if count_brackets == 0:
@@ -65,18 +68,18 @@ def lex(data: bytes):
                 state = "START"; continue # re-read this byte in START
         elif state == "NUMBER":
             if b is not None and is_digit(b): pass
-            elif b == 10:
+            elif b is not None and is_alpha(b):
+                raise CompileError(f"line {line}:{col}: unexpected letter '{chr(b)}' in number")
+            else:
                 word = data[start:i]
                 tokens.append(Token("number", word.decode(), line, get_start_col()))
                 state = "START"; continue
-            else:
-                raise CompileError(f"line {line}:{col}: unexpected symbol '{chr(b)}' after the number")
         elif state == "OPERATOR":
             if b is not None and is_symbol(b): pass
             else:
                 word = data[start:i]
                 if word.decode() not in [":=", "+", "-", "*"]:
-                    raise CompileError(f"line {line}:{col}: unexpected operator")
+                    raise CompileError(f"line {line}:{get_start_col()}: unexpected operator '{word.decode()}'")
                 tokens.append(Token("operator", word.decode(), line, get_start_col()))
                 state = "START"; continue
         i += 1; col += 1
