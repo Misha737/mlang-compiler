@@ -5,15 +5,19 @@ import pytest
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 VALID_CASES = [
-    "valid_basic",         # int x; x := 5; exit x
-    "valid_arithmetic",    # int x, y; y := x + 3; exit y
-    "valid_reassign",      # int x; x := 5; x := x + 10; exit x (reassign + self-reference)
+    "valid_const_decl",
+    "valid_mut_decl",
+    "valid_arithmetic",
+    "valid_spacing",
+    "valid_reassign",
 ]
 
 INVALID_CASES = [
-    "fail_undeclared",   # using a variable before declaring it
-    "fail_redeclare",    # declaring the same variable twice
-    "fail_no_exit",      # program does not end with exit
+    "fail_unknown_byte",
+    "fail_unterminated_brace",
+    "fail_assign_const",
+    "fail_use_before_decl",
+    "fail_missing_initializer",
 ]
 
 

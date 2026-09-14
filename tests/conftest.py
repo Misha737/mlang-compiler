@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-COMPILER_PATH = Path(__file__).parent.parent / "src" / "compiler.py"
+COMPILER_PATH = Path(__file__).parent.parent / "compiler.py"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 

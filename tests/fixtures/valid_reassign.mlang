@@ -1,4 +1,3 @@
-int x
-x := 5
-x := x + 10
-exit x
+i32 mut t{5}
+t := t * 3
+exit t

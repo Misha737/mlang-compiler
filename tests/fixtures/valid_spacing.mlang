@@ -1,0 +1,5 @@
+i32   x{ 2 }
+
+i32 mut   y { x + 8 }
+
+exit y
