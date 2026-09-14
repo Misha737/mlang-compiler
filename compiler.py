@@ -1,155 +1,156 @@
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from llvmlite import ir
 import llvmlite.binding as llvm
+from src.lexer import lex, CompileError
 
 def parse_arguments():
     args = sys.argv[1:]
-
-    if(len(args) != 2):
+    if len(args) != 2:
         print("Number of arguments must equal 2", file=sys.stderr)
         sys.exit(1)
-
-    return {
-            "source_path": args[0],
-            "output_path": args[1]
-        }
-
-
-def tokenize(path):
-    array_tokens = []
-    with open(path, "r", encoding="utf-8") as file:
-        for line in file:
-            tokens = line.split()
-            array_tokens.append(tokens)
-    return array_tokens
-
+    return {"source_path": args[0], "output_path": args[1]}
 
 @dataclass
 class Env:
     module: ir.Module
     builder: ir.IRBuilder
     printf: ir.Function
-    symbols: dict
-    line_index: int
     fmt: ir.GlobalVariable
-    I32, I8 = ir.IntType(32), ir.IntType(8)
+    symbols: dict = field(default_factory=dict)
+    I32 = ir.IntType(32)
+    I8 = ir.IntType(8)
     P = ir.PointerType(I8)
 
-def error_compilation(env, message):
-    print(f'''
-Compilation error:
-Line {env.line_index}: {message}
-    ''', file=sys.stderr)
+def error_at(token, message):
+    print(f"compilation error: line {token.line}:{token.col}: {message}", file=sys.stderr)
     sys.exit(1)
 
+def get_operand_value(env, token):
+    if token.kind == "number":
+        return ir.Constant(env.I32, int(token.text))
+    if token.kind == "ident":
+        if token.text not in env.symbols:
+            error_at(token, f"variable '{token.text}' is used before its declaration")
+        alloca, _ = env.symbols[token.text]
+        return env.builder.load(alloca)
+    error_at(token, f"expected a constant or variable, got '{token.text}'")
 
-def declare(env, name):
-    if name in ["int", "exit"]:
-        error_compilation(env, "")
-    if name[0].isdigit():
-        error_compilation(env, "")
-    if not all(ch.isalnum() or ch == "_" for ch in name):
-        error_compilation(env, "")
-    env.symbols[name] = env.builder.alloca(env.I32, name=name)
+def eval_expression(env, tokens, anchor):
+    if len(tokens) == 0:
+        error_at(anchor, "expected an expression")
+    if any(t.kind in ("lbrace", "rbrace") for t in tokens):
+        error_at(tokens[0], "unexpected '{' or '}' in expression")
+    if len(tokens) == 1:
+        return get_operand_value(env, tokens[0])
+    if len(tokens) == 3 and tokens[1].kind == "operator" and tokens[1].text in ("+", "-", "*"):
+        lhs = get_operand_value(env, tokens[0])
+        rhs = get_operand_value(env, tokens[2])
+        op = tokens[1].text
+        if op == "+":
+            return env.builder.add(lhs, rhs)
+        if op == "-":
+            return env.builder.sub(lhs, rhs)
+        return env.builder.mul(lhs, rhs)
+    error_at(tokens[0], "invalid expression")
 
-def exit_program(env, variable):
-    env.builder.call(env.printf, [env.builder.bitcast(env.fmt, env.P), env.builder.load(env.symbols[variable])])
+def process_declaration(env, tokens):
+    idx = 1
+    is_mut = False
+    if idx < len(tokens) and tokens[idx].kind == "keyword" and tokens[idx].text == "mut":
+        is_mut = True
+        idx += 1
+    if idx >= len(tokens) or tokens[idx].kind != "ident":
+        error_at(tokens[idx - 1], "expected a variable name")
+    name_token = tokens[idx]
+    name = name_token.text
+    idx += 1
+    if name in env.symbols:
+        error_at(name_token, f"variable '{name}' is already declared")
+    if idx >= len(tokens) or tokens[idx].kind != "lbrace":
+        error_at(name_token, f"variable '{name}' needs an initializer in {{}}")
+    if tokens[-1].kind != "rbrace":
+        error_at(tokens[-1], "expected '}' to close initializer")
+    inner = tokens[idx + 1:-1]
+    value = eval_expression(env, inner, tokens[idx])
+    alloca = env.builder.alloca(env.I32, name=name)
+    env.builder.store(value, alloca)
+    env.symbols[name] = (alloca, is_mut)
+
+def process_assignment(env, tokens):
+    name_token = tokens[0]
+    name = name_token.text
+    if name not in env.symbols:
+        error_at(name_token, f"variable '{name}' is used before its declaration")
+    alloca, is_mut = env.symbols[name]
+    if not is_mut:
+        error_at(name_token, f"cannot assign to '{name}': it is not mut")
+    if len(tokens) < 2 or not (tokens[1].kind == "operator" and tokens[1].text == ":="):
+        error_at(name_token, "invalid statement")
+    value = eval_expression(env, tokens[2:], tokens[1])
+    env.builder.store(value, alloca)
+
+def process_exit(env, tokens):
+    if len(tokens) != 2:
+        error_at(tokens[0], "exit expects exactly one operand")
+    value = get_operand_value(env, tokens[1])
+    env.builder.call(env.printf, [env.builder.bitcast(env.fmt, env.P), value])
     env.builder.ret(ir.Constant(env.I32, 0))
 
-def get_constant(env, operand):
-    if operand.isdigit():
-        return ir.Constant(env.I32, operand)
+def process_line(env, tokens):
+    first = tokens[0]
+    if first.kind == "keyword" and first.text == "i32":
+        process_declaration(env, tokens)
+    elif first.kind == "keyword" and first.text == "exit":
+        process_exit(env, tokens)
+    elif first.kind == "ident":
+        process_assignment(env, tokens)
     else:
-        if not (operand in env.symbols.keys()):
-            error_compilation(env, "")
-        return env.builder.load(env.symbols[operand])
-
-def operate(env, operator, operand1, operand2):
-    operand1 = get_constant(env, operand1)
-    operand2 = get_constant(env, operand2)
-    match operator:
-        case "+":
-            return env.builder.add(operand1, operand2)
-        case "-":
-            return env.builder.sub(operand1, operand2)
-        case "*":
-            return env.builder.mul(operand1, operand2)
-        case _:
-            error_compilation(env, "")
-
-def assign(env, assignee, constant):
-    if not (assignee in env.symbols.keys()):
-        error_compilation(env, "")
-    env.builder.store(constant, env.symbols[assignee])
-
-def process(env, line):
-    if len(line) < 1:
-        return
-    match line[0]:
-        case "int":
-            if len(line) != 2:
-                error_compilation(env, "")
-            if line[1] in env.symbols.keys():
-                error_compilation(env, "")
-            declare(env, line[1])
-        case "exit":
-            if len(line) != 2:
-                error_compilation(env, "")
-            if not (line[1] in env.symbols.keys()):
-                error_compilation(env, "")
-            exit_program(env, line[1])
-        case x if x in env.symbols.keys():
-            if len(line) < 3:
-                error_compilation(env, "")
-            if line[1] != ":=":
-                error_compilation(env, "")
-            if len(line) == 5:
-                assign(env, line[0], operate(env, line[3], line[2], line[4]))
-            elif len(line) == 3:
-                assign(env, line[0], get_constant(env, line[2]))
-            else:
-                error_compilation(env, "")
-        case _:
-            error_compilation(env, "Invalid syntax")
+        error_at(first, "line is not a valid statement")
 
 def compile(lines):
-    I32, I8 = ir.IntType(32), ir.IntType(8)
-    P = ir.PointerType(I8)
-
     module = ir.Module(name="p1")
     module.triple = llvm.get_default_triple()
-    main = ir.Function(module, ir.FunctionType(I32, []), name="main")
+    main = ir.Function(module, ir.FunctionType(ir.IntType(32), []), name="main")
     builder = ir.IRBuilder(main.append_basic_block("entry"))
 
-    printf = ir.Function(module, ir.FunctionType(I32, [ir.PointerType(I8)], var_arg=True), name="printf")
+    printf = ir.Function(module, ir.FunctionType(ir.IntType(32), [ir.PointerType(ir.IntType(8))], var_arg=True), name="printf")
 
     text = b"Program exit with result %d\n\0"
-    fmt = ir.GlobalVariable(module, ir.ArrayType(I8, len(text)), name="fmt")
+    fmt = ir.GlobalVariable(module, ir.ArrayType(ir.IntType(8), len(text)), name="fmt")
     fmt.linkage = "private"
     fmt.global_constant = True
-    fmt.initializer = ir.Constant(ir.ArrayType(I8, len(text)), bytearray(text))
+    fmt.initializer = ir.Constant(ir.ArrayType(ir.IntType(8), len(text)), bytearray(text))
 
-    symbols = {}
+    env = Env(module=module, builder=builder, fmt=fmt, printf=printf)
 
-    env = Env(module=module, builder=builder, fmt=fmt, symbols=symbols, line_index=0, printf=printf)
-
-
-    for line in lines:
-        env.line_index += 1
+    last_token = None
+    for line_tokens in lines:
+        if not line_tokens:
+            continue
         if env.builder.block.is_terminated:
-            error_compilation(env, "Code after exit")
-        process(env, line)
+            error_at(line_tokens[0], "code after exit is not allowed")
+        process_line(env, line_tokens)
+        last_token = line_tokens[-1]
 
     if not env.builder.block.is_terminated:
-        error_compilation(env, "Program must end with exit")
+        if last_token is not None:
+            error_at(last_token, "program must end with exit")
+        print("compilation error: line 1:1: program must end with exit", file=sys.stderr)
+        sys.exit(1)
 
     return env.module
 
-
 args = parse_arguments()
-tokens_array = tokenize(args["source_path"])
-module = compile(tokens_array)
+with open(args["source_path"], "rb") as file:
+    data = file.read()
+
+try:
+    lines_tokens = lex(data)
+    module = compile(lines_tokens)
+except CompileError as e:
+    print(f"compilation error: {e}", file=sys.stderr)
+    sys.exit(1)
 
 with open(args["output_path"], "w", encoding="utf-8") as file:
     file.write(str(module))
