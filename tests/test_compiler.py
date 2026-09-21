@@ -45,6 +45,26 @@ def test_valid_program_runs_with_expected_output(run_compiler, run_ir, case):
     assert run_result.stdout.strip() == expected
 
 
+def test_tokens_flag_prints_token_list(run_tokens):
+    source_file = FIXTURES_DIR / "tokens_worked_example.mlang"
+    expected = (FIXTURES_DIR / "tokens_worked_example.expected").read_text().strip()
+
+    result = run_tokens(source_file)
+
+    assert result.returncode == 0, f"expected success, got stderr: {result.stderr}"
+    assert result.stdout.strip() == expected
+
+
+def test_tokens_flag_reports_lexical_error(run_tokens):
+    source_file = FIXTURES_DIR / "fail_unknown_byte.mlang"
+
+    result = run_tokens(source_file)
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "unexpected byte" in result.stderr
+
+
 @pytest.mark.parametrize("case", INVALID_CASES)
 def test_invalid_program_fails(run_compiler, case):
     source_file = FIXTURES_DIR / f"{case}.mlang"

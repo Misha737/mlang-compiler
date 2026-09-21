@@ -26,6 +26,20 @@ def run_compiler(tmp_path):
 
 
 @pytest.fixture
+def run_tokens():
+    """Runs `python3 compiler.py --tokens <source>` and returns the CompletedProcess."""
+
+    def _run(source_file: Path):
+        return subprocess.run(
+            [sys.executable, str(COMPILER_PATH), "--tokens", str(source_file)],
+            capture_output=True,
+            text=True,
+        )
+
+    return _run
+
+
+@pytest.fixture
 def run_ir():
     """Runs a compiled .ll file with `lli` (the LLVM interpreter) and returns the CompletedProcess.
 

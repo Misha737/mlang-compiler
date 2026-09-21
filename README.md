@@ -43,6 +43,12 @@ tests/
 python3 compiler.py input.mlang output.ll
 ```
 
+To print the token list produced by the lexer (text, kind and `line:col` of each token) instead of compiling:
+
+```bash
+python3 compiler.py --tokens input.mlang
+```
+
 To run the generated IR directly, without linking:
 
 ```bash

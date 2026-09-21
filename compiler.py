@@ -2,14 +2,21 @@ import sys
 from dataclasses import dataclass, field
 from llvmlite import ir
 import llvmlite.binding as llvm
-from src.lexer import lex, CompileError
+from src.lexer import lex, format_tokens, CompileError
 
 def parse_arguments():
     args = sys.argv[1:]
-    if len(args) != 2:
-        print("Number of arguments must equal 2", file=sys.stderr)
+    dump_tokens = "--tokens" in args
+    if dump_tokens:
+        args.remove("--tokens")
+    if len(args) != (1 if dump_tokens else 2):
+        print("usage: compiler.py input output.ll | compiler.py --tokens input", file=sys.stderr)
         sys.exit(1)
-    return {"source_path": args[0], "output_path": args[1]}
+    return {
+        "source_path": args[0],
+        "output_path": None if dump_tokens else args[1],
+        "dump_tokens": dump_tokens,
+    }
 
 @dataclass
 class Env:
@@ -147,10 +154,14 @@ with open(args["source_path"], "rb") as file:
 
 try:
     lines_tokens = lex(data)
-    module = compile(lines_tokens)
+    if not args["dump_tokens"]:
+        module = compile(lines_tokens)
 except CompileError as e:
     print(f"compilation error: {e}", file=sys.stderr)
     sys.exit(1)
 
-with open(args["output_path"], "w", encoding="utf-8") as file:
-    file.write(str(module))
+if args["dump_tokens"]:
+    print(format_tokens(lines_tokens))
+else:
+    with open(args["output_path"], "w", encoding="utf-8") as file:
+        file.write(str(module))

@@ -1,0 +1,8 @@
+i32  keyword  1:4
+mut  keyword  1:8
+x    ident    1:12
+{    lbrace   1:13
+10   number   1:15
+}    rbrace   1:18
+var  ident    2:4
+t    ident    2:8

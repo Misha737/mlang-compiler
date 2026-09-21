@@ -26,6 +26,15 @@ def is_digit(b: int) -> bool:
 def is_symbol(b: int) -> bool:
     return chr(b) in (":", "=", "+", "-", "*")
 
+def format_tokens(lines):
+    tokens = [token for line_tokens in lines for token in line_tokens]
+    text_width = max((len(token.text) for token in tokens), default=0)
+    kind_width = max((len(token.kind) for token in tokens), default=0)
+    return "\n".join(
+        f"{token.text:<{text_width}}  {token.kind:<{kind_width}}  {token.line}:{token.col}"
+        for token in tokens
+    )
+
 def lex(data: bytes):
     lines = []
     tokens = []
