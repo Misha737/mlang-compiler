@@ -1,2 +1,1 @@
-line 2:7
-unexpected byte
+compilation error: line 2:7: unexpected byte '$'

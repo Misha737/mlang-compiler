@@ -68,13 +68,10 @@ def test_tokens_flag_reports_lexical_error(run_tokens):
 @pytest.mark.parametrize("case", INVALID_CASES)
 def test_invalid_program_fails(run_compiler, case):
     source_file = FIXTURES_DIR / f"{case}.mlang"
-    expected_lines = (FIXTURES_DIR / f"{case}.expected").read_text().strip().splitlines()
+    expected = (FIXTURES_DIR / f"{case}.expected").read_text().strip()
 
     result, output_file = run_compiler(source_file)
 
     assert result.returncode != 0, "compiler must exit with a non-zero code on error"
     assert not output_file.exists(), "compiler must not write an output file on error"
-    for expected in expected_lines:
-        assert expected.lower() in result.stderr.lower(), (
-            f"expected {expected!r} in stderr, got: {result.stderr!r}"
-        )
+    assert result.stderr.strip() == expected

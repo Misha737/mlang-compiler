@@ -1,2 +1,1 @@
-line 1:7
-used before its declaration
+compilation error: line 1:7: variable 'y' is used before its declaration
