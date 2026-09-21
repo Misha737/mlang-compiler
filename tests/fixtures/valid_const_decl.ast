@@ -1,0 +1,5 @@
+Program
+  Decl x const
+    Const 5
+  Exit
+    Var x

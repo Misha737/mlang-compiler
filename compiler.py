@@ -3,19 +3,21 @@ from dataclasses import dataclass, field
 from llvmlite import ir
 import llvmlite.binding as llvm
 from src.lexer import lex, format_tokens, CompileError
+from src.parser import Parser
+
+DUMP_FLAGS = ("--tokens", "--ast")
 
 def parse_arguments():
     args = sys.argv[1:]
-    dump_tokens = "--tokens" in args
-    if dump_tokens:
-        args.remove("--tokens")
-    if len(args) != (1 if dump_tokens else 2):
-        print("usage: compiler.py input output.ll | compiler.py --tokens input", file=sys.stderr)
+    flags = [arg for arg in args if arg in DUMP_FLAGS]
+    paths = [arg for arg in args if arg not in DUMP_FLAGS]
+    if len(flags) > 1 or len(paths) != (1 if flags else 2):
+        print("usage: compiler.py input output.ll | compiler.py --tokens input | compiler.py --ast input", file=sys.stderr)
         sys.exit(1)
     return {
-        "source_path": args[0],
-        "output_path": None if dump_tokens else args[1],
-        "dump_tokens": dump_tokens,
+        "source_path": paths[0],
+        "output_path": None if flags else paths[1],
+        "dump": flags[0] if flags else None,
     }
 
 @dataclass
@@ -152,16 +154,21 @@ args = parse_arguments()
 with open(args["source_path"], "rb") as file:
     data = file.read()
 
+dump = args["dump"]
 try:
     lines_tokens = lex(data)
-    if not args["dump_tokens"]:
+    if dump == "--ast":
+        tree = Parser(lines_tokens).parse_program()
+    elif dump is None:
         module = compile(lines_tokens)
 except CompileError as e:
     print(f"compilation error: {e}", file=sys.stderr)
     sys.exit(1)
 
-if args["dump_tokens"]:
+if dump == "--tokens":
     print(format_tokens(lines_tokens))
+elif dump == "--ast":
+    print(tree.dump())
 else:
     with open(args["output_path"], "w", encoding="utf-8") as file:
         file.write(str(module))

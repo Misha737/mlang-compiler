@@ -26,12 +26,12 @@ def run_compiler(tmp_path):
 
 
 @pytest.fixture
-def run_tokens():
-    """Runs `python3 compiler.py --tokens <source>` and returns the CompletedProcess."""
+def run_dump():
+    """Runs `python3 compiler.py <flag> <source>` (--tokens or --ast) and returns the CompletedProcess."""
 
-    def _run(source_file: Path):
+    def _run(flag: str, source_file: Path):
         return subprocess.run(
-            [sys.executable, str(COMPILER_PATH), "--tokens", str(source_file)],
+            [sys.executable, str(COMPILER_PATH), flag, str(source_file)],
             capture_output=True,
             text=True,
         )
