@@ -1,0 +1,10 @@
+(* One statement per line. The lexer delivers tokens grouped by line, so line ends are not tokens; blank lines are skipped. *)
+(* Terminals: "i32" "mut" "exit" are keyword tokens, "{" is lbrace, "}" is rbrace, ":=" "+" "-" "*" are operator tokens, ident and number are ident and number tokens. *)
+
+program   ::= { statement } exit
+statement ::= decl | assign
+decl      ::= "i32" [ "mut" ] ident "{" value "}"
+assign    ::= ident ":=" value
+exit      ::= "exit" operand
+value     ::= operand [ ( "+" | "-" | "*" ) operand ]
+operand   ::= number | ident

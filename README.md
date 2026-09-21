@@ -31,6 +31,7 @@ Activate the virtual environment (`source ~/lcd/bin/activate`) in every new shel
 ```
 compiler.py       # entry point: lexer -> statement parsing -> LLVM IR generation
 src/lexer.py          # hand-written state machine lexer
+grammar.ebnf      # EBNF grammar of the language
 tests/
   test_compiler.py
   conftest.py
