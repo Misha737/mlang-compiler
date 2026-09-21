@@ -1,0 +1,5 @@
+- First of all, I used AI as a tutor in Python. I asked questions about methods and what they do.
+- AI was also used as an analyzer of potential errors in my code. I gave it my code and asked it to find weak spots and potential bugs.
+- AI was also used to implement some simple methods. For example: is_alpha, is_digit.
+- AI was also used to build tests (valid and fail) using pytest
+- AI was also used to write README.md

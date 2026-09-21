@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-COMPILER_PATH = Path(__file__).parent.parent / "src" / "compiler.py"
+COMPILER_PATH = Path(__file__).parent.parent / "compiler.py"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
@@ -21,6 +21,20 @@ def run_compiler(tmp_path):
             text=True,
         )
         return result, output_file
+
+    return _run
+
+
+@pytest.fixture
+def run_tokens():
+    """Runs `python3 compiler.py --tokens <source>` and returns the CompletedProcess."""
+
+    def _run(source_file: Path):
+        return subprocess.run(
+            [sys.executable, str(COMPILER_PATH), "--tokens", str(source_file)],
+            capture_output=True,
+            text=True,
+        )
 
     return _run
 

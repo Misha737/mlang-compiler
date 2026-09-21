@@ -5,15 +5,19 @@ import pytest
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 VALID_CASES = [
-    "valid_basic",         # int x; x := 5; exit x
-    "valid_arithmetic",    # int x, y; y := x + 3; exit y
-    "valid_reassign",      # int x; x := 5; x := x + 10; exit x (reassign + self-reference)
+    "valid_const_decl",
+    "valid_mut_decl",
+    "valid_arithmetic",
+    "valid_spacing",
+    "valid_reassign",
 ]
 
 INVALID_CASES = [
-    "fail_undeclared",   # using a variable before declaring it
-    "fail_redeclare",    # declaring the same variable twice
-    "fail_no_exit",      # program does not end with exit
+    "fail_unknown_byte",
+    "fail_unterminated_brace",
+    "fail_assign_const",
+    "fail_use_before_decl",
+    "fail_missing_initializer",
 ]
 
 
@@ -41,16 +45,33 @@ def test_valid_program_runs_with_expected_output(run_compiler, run_ir, case):
     assert run_result.stdout.strip() == expected
 
 
+def test_tokens_flag_prints_token_list(run_tokens):
+    source_file = FIXTURES_DIR / "tokens_worked_example.mlang"
+    expected = (FIXTURES_DIR / "tokens_worked_example.expected").read_text().strip()
+
+    result = run_tokens(source_file)
+
+    assert result.returncode == 0, f"expected success, got stderr: {result.stderr}"
+    assert result.stdout.strip() == expected
+
+
+def test_tokens_flag_reports_lexical_error(run_tokens):
+    source_file = FIXTURES_DIR / "fail_unknown_byte.mlang"
+
+    result = run_tokens(source_file)
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "unexpected byte" in result.stderr
+
+
 @pytest.mark.parametrize("case", INVALID_CASES)
 def test_invalid_program_fails(run_compiler, case):
     source_file = FIXTURES_DIR / f"{case}.mlang"
-    expected_lines = (FIXTURES_DIR / f"{case}.expected").read_text().strip().splitlines()
+    expected = (FIXTURES_DIR / f"{case}.expected").read_text().strip()
 
     result, output_file = run_compiler(source_file)
 
     assert result.returncode != 0, "compiler must exit with a non-zero code on error"
     assert not output_file.exists(), "compiler must not write an output file on error"
-    for expected in expected_lines:
-        assert expected.lower() in result.stderr.lower(), (
-            f"expected {expected!r} in stderr, got: {result.stderr!r}"
-        )
+    assert result.stderr.strip() == expected
