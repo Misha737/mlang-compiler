@@ -19,6 +19,9 @@ INVALID_CASES = [
     "fail_assign_const",
     "fail_use_before_decl",
     "fail_missing_initializer",
+    "fail_redeclared",
+    "fail_assign_undeclared",
+    "fail_exit_undeclared",
 ]
 
 SYNTAX_ERROR_CASES = [
@@ -100,7 +103,7 @@ def test_ast_flag_reports_syntax_error(run_dump, case):
     assert result.stderr.strip() == expected
 
 
-@pytest.mark.parametrize("case", INVALID_CASES)
+@pytest.mark.parametrize("case", INVALID_CASES + SYNTAX_ERROR_CASES)
 def test_invalid_program_fails(run_compiler, case):
     source_file = FIXTURES_DIR / f"{case}.mlang"
     expected = (FIXTURES_DIR / f"{case}.expected").read_text().strip()

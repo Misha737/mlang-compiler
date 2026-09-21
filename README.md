@@ -29,10 +29,11 @@ Activate the virtual environment (`source ~/lcd/bin/activate`) in every new shel
 ## Project layout
 
 ```
-compiler.py       # entry point: lexer -> statement parsing -> LLVM IR generation
+compiler.py       # entry point: lexer -> parser -> code generation
 src/lexer.py          # hand-written state machine lexer
 src/parser.py         # hand-written recursive-descent parser
 src/ast_nodes.py      # AST node classes and the tree dump
+src/codegen.py        # visitor over the AST that emits LLVM IR and checks declarations
 grammar.ebnf      # EBNF grammar of the language
 tests/
   test_compiler.py

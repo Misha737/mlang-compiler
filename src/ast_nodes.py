@@ -9,6 +9,9 @@ class Node:
     def children(self):
         return []
 
+    def accept(self, visitor):
+        raise NotImplementedError
+
     def dump(self, depth=0):
         rows = ["  " * depth + self.label()]
         for child in self.children():
@@ -28,6 +31,9 @@ class ProgramNode(Node):
     def children(self):
         return [*self.statements, self.exit]
 
+    def accept(self, visitor):
+        return visitor.visit_program(self)
+
 
 class StmtNode(Node):
     pass
@@ -46,6 +52,9 @@ class DeclNode(StmtNode):
     def children(self):
         return [self.init]
 
+    def accept(self, visitor):
+        return visitor.visit_decl(self)
+
 
 class AssignNode(StmtNode):
     def __init__(self, line, col, name, value):
@@ -59,6 +68,9 @@ class AssignNode(StmtNode):
     def children(self):
         return [self.value]
 
+    def accept(self, visitor):
+        return visitor.visit_assign(self)
+
 
 class ExitNode(Node):
     def __init__(self, line, col, value):
@@ -70,6 +82,9 @@ class ExitNode(Node):
 
     def children(self):
         return [self.value]
+
+    def accept(self, visitor):
+        return visitor.visit_exit(self)
 
 
 class ExprNode(Node):
@@ -89,6 +104,9 @@ class BinOpNode(ExprNode):
     def children(self):
         return [self.left, self.right]
 
+    def accept(self, visitor):
+        return visitor.visit_binop(self)
+
 
 class VarNode(ExprNode):
     def __init__(self, line, col, name):
@@ -98,6 +116,9 @@ class VarNode(ExprNode):
     def label(self):
         return f"Var {self.name}"
 
+    def accept(self, visitor):
+        return visitor.visit_var(self)
+
 
 class ConstNode(ExprNode):
     def __init__(self, line, col, value):
@@ -106,3 +127,6 @@ class ConstNode(ExprNode):
 
     def label(self):
         return f"Const {self.value}"
+
+    def accept(self, visitor):
+        return visitor.visit_const(self)
