@@ -4,8 +4,6 @@ from src.ast_nodes import (
     BinOpNode, VarNode, ConstNode,
 )
 
-ARITHMETIC = ("+", "-", "*")
-
 class Parser:
     def __init__(self, lines):
         self.lines = lines
@@ -23,6 +21,10 @@ class Parser:
     def at(self, kind, text=None):
         tok = self.peek()
         return tok is not None and tok.kind == kind and (text is None or tok.text == text)
+
+    def at_operator(self, *texts):
+        tok = self.peek()
+        return tok is not None and tok.kind == "operator" and tok.text in texts
 
     def expect(self, kind, what, text=None):
         if not self.at(kind, text):
@@ -82,27 +84,36 @@ class Parser:
         if not self.at("lbrace"):
             raise CompileError(f"line {name.line}:{name.col}: variable '{name.text}' needs an initializer in {{}}")
         self.eat()
-        init = self.parse_value()
+        init = self.parse_expr()
         self.expect("rbrace", "'}'")
         return DeclNode(name.line, name.col, name.text, mutable, init)
 
     def parse_assign(self):
         name = self.eat()
         self.expect("operator", f"':=' after '{name.text}'", ":=")
-        value = self.parse_value()
+        value = self.parse_expr()
         return AssignNode(name.line, name.col, name.text, value)
 
     def parse_exit(self):
         keyword = self.eat()
         return ExitNode(keyword.line, keyword.col, self.parse_operand())
 
-    def parse_value(self):
-        left = self.parse_operand()
-        tok = self.peek()
-        if tok is not None and tok.kind == "operator" and tok.text in ARITHMETIC:
-            self.eat()
-            return BinOpNode(tok.line, tok.col, tok.text, left, self.parse_operand())
-        return left
+    def parse_expr(self):
+        node = self.parse_term()
+        while self.at_operator("+", "-"):
+            op = self.eat()
+            node = BinOpNode(op.line, op.col, op.text, node, self.parse_term())
+        return node
+
+    def parse_term(self):
+        node = self.parse_factor()
+        while self.at_operator("*"):
+            op = self.eat()
+            node = BinOpNode(op.line, op.col, op.text, node, self.parse_factor())
+        return node
+
+    def parse_factor(self):
+        return self.parse_operand()
 
     def parse_operand(self):
         tok = self.peek()

@@ -11,6 +11,12 @@ VALID_CASES = [
     "valid_spacing",
     "valid_reassign",
     "valid_practice2",
+    "valid_precedence",
+    "valid_mul_middle",
+    "valid_left_assoc",
+    "valid_assign_expr",
+    "valid_no_spaces",
+    "valid_chain",
 ]
 
 INVALID_CASES = [
@@ -22,6 +28,11 @@ INVALID_CASES = [
     "fail_redeclared",
     "fail_assign_undeclared",
     "fail_exit_undeclared",
+    "fail_expr_use_before_decl",
+    "fail_parenthesis",
+    "fail_division",
+    "fail_colon_alone",
+    "fail_equals_alone",
 ]
 
 SYNTAX_ERROR_CASES = [
@@ -33,6 +44,11 @@ SYNTAX_ERROR_CASES = [
     "fail_syntax_after_exit",
     "fail_syntax_no_exit",
     "fail_syntax_exit_operation",
+    "fail_syntax_tight_operators",
+    "fail_syntax_trailing_operator",
+    "fail_syntax_operator_after_brace",
+    "fail_syntax_extra_operand",
+    "fail_syntax_unary_minus",
 ]
 
 
