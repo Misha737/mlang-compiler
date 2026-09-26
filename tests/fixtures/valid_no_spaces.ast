@@ -1,0 +1,15 @@
+Program
+  Decl x mut
+    BinOp -
+      BinOp +
+        Const 1
+        BinOp *
+          Const 2
+          Const 3
+      Const 4
+  Assign x
+    BinOp *
+      Var x
+      Const 2
+  Exit
+    Var x

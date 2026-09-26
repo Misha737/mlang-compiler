@@ -29,12 +29,16 @@ Activate the virtual environment (`source ~/lcd/bin/activate`) in every new shel
 ## Project layout
 
 ```
-compiler.py       # entry point: lexer -> statement parsing -> LLVM IR generation
+compiler.py       # entry point: lexer -> parser -> code generation
 src/lexer.py          # hand-written state machine lexer
+src/parser.py         # hand-written recursive-descent parser
+src/ast_nodes.py      # AST node classes and the tree dump
+src/codegen.py        # visitor over the AST that emits LLVM IR and checks declarations
+grammar.ebnf      # EBNF grammar of the language
 tests/
   test_compiler.py
   conftest.py
-  fixtures/       # .mlang source programs and their .expected outputs
+  fixtures/       # .mlang source programs with their .expected outputs and .ast tree dumps
 ```
 
 ## Running the compiler
@@ -47,6 +51,12 @@ To print the token list produced by the lexer (text, kind and `line:col` of each
 
 ```bash
 python3 compiler.py --tokens input.mlang
+```
+
+To print the abstract syntax tree built by the parser instead of compiling:
+
+```bash
+python3 compiler.py --ast input.mlang
 ```
 
 To run the generated IR directly, without linking:
