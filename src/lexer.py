@@ -23,8 +23,8 @@ def is_alpha(b: int) -> bool:
 def is_digit(b: int) -> bool:
     return 0x30 <= b <= 0x39
 
-def is_symbol(b: int) -> bool:
-    return chr(b) in (":", "=", "+", "-", "*")
+def is_arithmetic(b: int) -> bool:
+    return b in (ord("+"), ord("-"), ord("*"))
 
 def format_tokens(lines):
     tokens = [token for line_tokens in lines for token in line_tokens]
@@ -67,7 +67,9 @@ def lex(data: bytes):
                 if count_brackets == 0:
                     raise CompileError(f"line {line}:{col}: '}}' connot be without '{{' before")
                 count_brackets -= 1
-            elif is_symbol(b): state, start = "OPERATOR", i
+            elif is_arithmetic(b): tokens.append(Token("operator", chr(b), line, col))
+            elif b == ord(":"): state, start = "COLON", i
+            elif b == ord("="): raise CompileError(f"line {line}:{col}: unexpected operator '='")
             else: raise CompileError(f"line {line}:{col}: unexpected byte '{chr(b)}'")
         elif state == "IDENT":
             if b is not None and (is_alpha(b) or is_digit(b)): pass
@@ -83,14 +85,12 @@ def lex(data: bytes):
                 word = data[start:i]
                 tokens.append(Token("number", word.decode(), line, get_start_col()))
                 state = "START"; continue
-        elif state == "OPERATOR":
-            if b is not None and is_symbol(b): pass
+        elif state == "COLON":
+            if b == ord("="):
+                tokens.append(Token("operator", ":=", line, get_start_col()))
+                state = "START"
             else:
-                word = data[start:i]
-                if word.decode() not in [":=", "+", "-", "*"]:
-                    raise CompileError(f"line {line}:{get_start_col()}: unexpected operator '{word.decode()}'")
-                tokens.append(Token("operator", word.decode(), line, get_start_col()))
-                state = "START"; continue
+                raise CompileError(f"line {line}:{get_start_col()}: unexpected operator ':'")
         i += 1; col += 1
     if tokens: lines.append(tokens)
     return lines
