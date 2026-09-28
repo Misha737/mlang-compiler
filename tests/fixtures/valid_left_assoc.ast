@@ -1,5 +1,5 @@
 Program
-  Decl a const
+  Decl a i32 const
     BinOp -
       BinOp -
         Const 10

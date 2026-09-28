@@ -1,0 +1,4 @@
+bool b{true}
+i32 n{5}
+bool c{b == n}
+exit c

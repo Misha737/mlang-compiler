@@ -1,0 +1,4 @@
+bool a{true}
+bool mut b{false}
+b := a == a
+exit b

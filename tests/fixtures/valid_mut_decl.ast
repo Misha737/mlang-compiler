@@ -1,5 +1,5 @@
 Program
-  Decl y mut
+  Decl y i32 mut
     Const 10
   Assign y
     Const 20
