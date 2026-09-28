@@ -1,6 +1,7 @@
 import sys
 from src.lexer import lex, format_tokens, CompileError
 from src.parser import Parser
+from src.semantic import SemanticChecker
 from src.codegen import CodeGen
 
 DUMP_FLAGS = ("--tokens", "--ast")
@@ -28,6 +29,7 @@ try:
     if dump != "--tokens":
         tree = Parser(lines_tokens).parse_program()
         if dump is None:
+            SemanticChecker().check(tree)
             module = CodeGen().generate(tree)
 except CompileError as e:
     print(f"compilation error: {e}", file=sys.stderr)

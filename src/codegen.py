@@ -1,16 +1,11 @@
 from llvmlite import ir
 import llvmlite.binding as llvm
-from src.lexer import CompileError
 
 I32 = ir.IntType(32)
 I8 = ir.IntType(8)
 I8_PTR = ir.PointerType(I8)
 
 OPERATIONS = {"+": "add", "-": "sub", "*": "mul"}
-
-
-def error_at(node, message):
-    return CompileError(f"line {node.line}:{node.col}: {message}")
 
 
 class CodeGen:
@@ -39,19 +34,13 @@ class CodeGen:
         node.exit.accept(self)
 
     def visit_decl(self, node):
-        if node.name in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is already declared")
         value = node.init.accept(self)
         alloca = self.builder.alloca(I32, name=node.name)
         self.builder.store(value, alloca)
-        self.symbols[node.name] = (alloca, node.mutable)
+        self.symbols[node.name] = alloca
 
     def visit_assign(self, node):
-        if node.name not in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is used before its declaration")
-        alloca, mutable = self.symbols[node.name]
-        if not mutable:
-            raise error_at(node, f"cannot assign to '{node.name}': it is not mut")
+        alloca = self.symbols[node.name]
         value = node.value.accept(self)
         self.builder.store(value, alloca)
 
@@ -66,9 +55,7 @@ class CodeGen:
         return getattr(self.builder, OPERATIONS[node.op])(left, right)
 
     def visit_var(self, node):
-        if node.name not in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is used before its declaration")
-        alloca, _ = self.symbols[node.name]
+        alloca = self.symbols[node.name]
         return self.builder.load(alloca)
 
     def visit_const(self, node):
