@@ -13,8 +13,12 @@ class CompileError(Exception):
 
 KEYWORDS = {
     b"i32": "keyword",
+    b"i64": "keyword",
+    b"bool": "keyword",
     b"mut": "keyword",
     b"exit": "keyword",
+    b"true": "keyword",
+    b"false": "keyword",
 }
 
 def is_alpha(b: int) -> bool:
@@ -69,7 +73,8 @@ def lex(data: bytes):
                 count_brackets -= 1
             elif is_arithmetic(b): tokens.append(Token("operator", chr(b), line, col))
             elif b == ord(":"): state, start = "COLON", i
-            elif b == ord("="): raise CompileError(f"line {line}:{col}: unexpected operator '='")
+            elif b == ord("="): state, start = "EQ", i
+            elif b == ord("!"): state, start = "BANG", i
             else: raise CompileError(f"line {line}:{col}: unexpected byte '{chr(b)}'")
         elif state == "IDENT":
             if b is not None and (is_alpha(b) or is_digit(b)): pass
@@ -91,6 +96,18 @@ def lex(data: bytes):
                 state = "START"
             else:
                 raise CompileError(f"line {line}:{get_start_col()}: unexpected operator ':'")
+        elif state == "EQ":
+            if b == ord("="):
+                tokens.append(Token("operator", "==", line, get_start_col()))
+                state = "START"
+            else:
+                raise CompileError(f"line {line}:{get_start_col()}: expected '==' (a single '=' is not an operator)")
+        elif state == "BANG":
+            if b == ord("="):
+                tokens.append(Token("operator", "!=", line, get_start_col()))
+                state = "START"
+            else:
+                raise CompileError(f"line {line}:{get_start_col()}: expected '!=' (a single '!' is not an operator)")
         i += 1; col += 1
     if tokens: lines.append(tokens)
     return lines

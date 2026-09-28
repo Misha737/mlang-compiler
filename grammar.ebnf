@@ -1,13 +1,15 @@
 (* One statement per line. The lexer delivers tokens grouped by line, so line ends are not tokens; blank lines are skipped. *)
-(* Terminals: "i32" "mut" "exit" are keyword tokens, "{" is lbrace, "}" is rbrace, ":=" "+" "-" "*" are operator tokens, ident and number are ident and number tokens. *)
-(* Precedence: "*" binds tighter than "+" and "-"; operators of equal precedence group from left to right. *)
+(* Terminals: "i32" "i64" "bool" "mut" "exit" "true" "false" are keyword tokens, "{" is lbrace, "}" is rbrace, *)
+(* ":=" "+" "-" "*" "==" "!=" are operator tokens, ident and number are ident and number tokens. *)
+(* Precedence, tightest first: factor, term (*), arith (+ -), expr (== !=, at most one per expression). *)
 
 program   ::= { statement } exit
 statement ::= decl | assign
-decl      ::= "i32" [ "mut" ] ident "{" expr "}"
+decl      ::= type [ "mut" ] ident "{" expr "}"
+type      ::= "i32" | "i64" | "bool"
 assign    ::= ident ":=" expr
-exit      ::= "exit" operand
-expr      ::= term { ( "+" | "-" ) term }
+exit      ::= "exit" factor
+expr      ::= arith [ ( "==" | "!=" ) arith ]
+arith     ::= term { ( "+" | "-" ) term }
 term      ::= factor { "*" factor }
-factor    ::= operand
-operand   ::= number | ident
+factor    ::= number | "true" | "false" | ident

@@ -1,8 +1,10 @@
 from src.lexer import CompileError
 from src.ast_nodes import (
     ProgramNode, DeclNode, AssignNode, ExitNode,
-    BinOpNode, VarNode, ConstNode,
+    BinOpNode, VarNode, ConstNode, BoolNode,
 )
+
+TYPE_NAMES = ("i32", "i64", "bool")
 
 class Parser:
     def __init__(self, lines):
@@ -69,14 +71,14 @@ class Parser:
 
     def parse_statement(self):
         tok = self.peek()
-        if self.at("keyword", "i32"):
+        if self.at("keyword") and tok.text in TYPE_NAMES:
             return self.parse_decl()
         if self.at("ident"):
             return self.parse_assign()
         raise CompileError(f"line {tok.line}:{tok.col}: cannot start a statement with '{tok.text}'")
 
     def parse_decl(self):
-        self.eat()
+        type_tok = self.eat()
         mutable = self.at("keyword", "mut")
         if mutable:
             self.eat()
@@ -86,7 +88,7 @@ class Parser:
         self.eat()
         init = self.parse_expr()
         self.expect("rbrace", "'}'")
-        return DeclNode(name.line, name.col, name.text, mutable, init)
+        return DeclNode(name.line, name.col, name.text, type_tok.text, mutable, init)
 
     def parse_assign(self):
         name = self.eat()
@@ -96,9 +98,16 @@ class Parser:
 
     def parse_exit(self):
         keyword = self.eat()
-        return ExitNode(keyword.line, keyword.col, self.parse_operand())
+        return ExitNode(keyword.line, keyword.col, self.parse_factor())
 
     def parse_expr(self):
+        node = self.parse_arith()
+        if self.at_operator("==", "!="):
+            op = self.eat()
+            node = BinOpNode(op.line, op.col, op.text, node, self.parse_arith())
+        return node
+
+    def parse_arith(self):
         node = self.parse_term()
         while self.at_operator("+", "-"):
             op = self.eat()
@@ -113,13 +122,13 @@ class Parser:
         return node
 
     def parse_factor(self):
-        return self.parse_operand()
-
-    def parse_operand(self):
         tok = self.peek()
         if self.at("number"):
             self.eat()
             return ConstNode(tok.line, tok.col, int(tok.text))
+        if self.at("keyword", "true") or self.at("keyword", "false"):
+            self.eat()
+            return BoolNode(tok.line, tok.col, tok.text == "true")
         if self.at("ident"):
             self.eat()
             return VarNode(tok.line, tok.col, tok.text)
