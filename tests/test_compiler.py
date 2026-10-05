@@ -58,6 +58,11 @@ SEMANTIC_ERROR_CASES = [
     "fail_bool_from_int",
     "fail_const_overflow_i64",
     "fail_warm_up_narrowing",
+    "fail_if_condition_not_bool",
+    "fail_not_on_integer",
+    "fail_use_after_block",
+    "fail_redeclared_in_block",
+    "fail_assign_shadowed_type",
 ]
 
 SYNTAX_ERROR_CASES = [

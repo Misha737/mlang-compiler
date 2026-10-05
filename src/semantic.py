@@ -14,28 +14,51 @@ def error_at(node, message):
 
 class SemanticChecker:
     def __init__(self):
-        self.symbols = {}  # name -> DeclNode
+        self.scopes = []  # frames, innermost last: name -> DeclNode
 
     def check(self, program):
         program.accept(self)
         return program
 
+    def lookup(self, node, name):
+        for frame in reversed(self.scopes):
+            if name in frame:
+                return frame[name]
+        raise error_at(node, f"variable '{name}' is used before its declaration")
+
     def visit_program(self, node):
+        self.scopes.append({})
         for statement in node.statements:
             statement.accept(self)
         node.exit.accept(self)
+        self.scopes.pop()
+
+    def visit_block(self, node):
+        self.scopes.append({})
+        for statement in node.statements:
+            statement.accept(self)
+        if node.exit:
+            node.exit.accept(self)
+        self.scopes.pop()
+
+    def visit_if(self, node):
+        condition = node.condition.accept(self)
+        if condition != "bool":
+            raise error_at(node, f"the condition of 'if' must be bool, got {condition}")
+        node.then_block.accept(self)
+        if node.else_block:
+            node.else_block.accept(self)
 
     def visit_decl(self, node):
-        if node.name in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is already declared")
+        if node.name in self.scopes[-1]:
+            where = " in this block" if len(self.scopes) > 1 else ""
+            raise error_at(node, f"variable '{node.name}' is already declared{where}")
         node.init.accept(self)
         self.check_assignable(node.init, node.type_name, node, f"initialise '{node.name}'")
-        self.symbols[node.name] = node
+        self.scopes[-1][node.name] = node
 
     def visit_assign(self, node):
-        if node.name not in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is used before its declaration")
-        decl = self.symbols[node.name]
+        decl = self.lookup(node, node.name)
         if not decl.mutable:
             raise error_at(node, f"cannot assign to '{node.name}': it is not mut")
         node.decl = decl
@@ -59,10 +82,15 @@ class SemanticChecker:
             node.type = "bool"
         return node.type
 
+    def visit_not(self, node):
+        operand = node.operand.accept(self)
+        if operand != "bool":
+            raise error_at(node, f"cannot apply '!' to {operand}")
+        node.type = "bool"
+        return node.type
+
     def visit_var(self, node):
-        if node.name not in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is used before its declaration")
-        node.decl = self.symbols[node.name]
+        node.decl = self.lookup(node, node.name)
         node.type = node.decl.type_name
         return node.type
 
