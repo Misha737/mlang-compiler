@@ -19,6 +19,8 @@ KEYWORDS = {
     b"exit": "keyword",
     b"true": "keyword",
     b"false": "keyword",
+    b"if": "keyword",
+    b"else": "keyword",
 }
 
 def is_alpha(b: int) -> bool:
@@ -43,8 +45,6 @@ def lex(data: bytes):
     lines = []
     tokens = []
     state, start, line, col = "START", 0, 1, 1
-    count_brackets = 0
-    open_brace_pos = (0, 0)
     i = 0
 
     def get_start_col():
@@ -56,21 +56,11 @@ def lex(data: bytes):
             if b is None: break
             elif b in (32, 9): pass # space, tab
             elif b == 10:
-                if count_brackets != 0:
-                    oline, ocol = open_brace_pos
-                    raise CompileError(f"line {oline}:{ocol}: '{{' is not closed before the end of the line")
                 lines.append(tokens); tokens = []; line += 1; col = 0
             elif is_alpha(b): state, start = "IDENT", i
             elif is_digit(b): state, start = "NUMBER", i
-            elif b == ord("{"):
-                tokens.append(Token("lbrace", "{", line, col))
-                count_brackets += 1
-                open_brace_pos = (line, col)
-            elif b == ord("}"):
-                tokens.append(Token("rbrace", "}", line, col))
-                if count_brackets == 0:
-                    raise CompileError(f"line {line}:{col}: '}}' connot be without '{{' before")
-                count_brackets -= 1
+            elif b == ord("{"): tokens.append(Token("lbrace", "{", line, col))
+            elif b == ord("}"): tokens.append(Token("rbrace", "}", line, col))
             elif is_arithmetic(b): tokens.append(Token("operator", chr(b), line, col))
             elif b == ord(":"): state, start = "COLON", i
             elif b == ord("="): state, start = "EQ", i
@@ -107,7 +97,8 @@ def lex(data: bytes):
                 tokens.append(Token("operator", "!=", line, get_start_col()))
                 state = "START"
             else:
-                raise CompileError(f"line {line}:{get_start_col()}: expected '!=' (a single '!' is not an operator)")
+                tokens.append(Token("operator", "!", line, get_start_col()))
+                state = "START"; continue
         i += 1; col += 1
     if tokens: lines.append(tokens)
     return lines

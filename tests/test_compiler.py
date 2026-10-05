@@ -22,7 +22,6 @@ VALID_CASES = [
 
 INVALID_CASES = [
     "fail_unknown_byte",
-    "fail_unterminated_brace",
     "fail_assign_const",
     "fail_use_before_decl",
     "fail_missing_initializer",
@@ -34,7 +33,15 @@ INVALID_CASES = [
     "fail_division",
     "fail_colon_alone",
     "fail_equals_alone",
-    "fail_bang_alone",
+]
+
+# Front end only (Task 1 of Practice 5): if/else, blocks and ! parse and dump
+# correctly. Compiling these programs needs the scope stack and the basic-block
+# code generation added in Tasks 2 and 3.
+BLOCKS_AST_CASES = [
+    "valid_scope_warmup",
+    "valid_if_else",
+    "valid_not_operator",
 ]
 
 # Semantic pass (Task 2 of Practice 4): these fail before code generation is
@@ -67,6 +74,16 @@ SYNTAX_ERROR_CASES = [
     "fail_syntax_operator_after_brace",
     "fail_syntax_extra_operand",
     "fail_syntax_unary_minus",
+    "fail_unterminated_brace",
+    "fail_bang_statement",
+    "fail_if_no_brace_line",
+    "fail_if_brace_same_line",
+    "fail_empty_block",
+    "fail_else_without_if",
+    "fail_brace_never_closed",
+    "fail_stmt_after_block_exit",
+    "fail_if_eof",
+    "fail_else_brace_same_line",
 ]
 
 
@@ -104,6 +121,16 @@ def test_tokens_flag_prints_token_list(run_dump):
     assert result.stdout.strip() == expected
 
 
+def test_tokens_flag_reads_bang_again_unless_followed_by_equals(run_dump):
+    source_file = FIXTURES_DIR / "tokens_bang.mlang"
+    expected = (FIXTURES_DIR / "tokens_bang.expected").read_text().strip()
+
+    result = run_dump("--tokens", source_file)
+
+    assert result.returncode == 0, f"expected success, got stderr: {result.stderr}"
+    assert result.stdout.strip() == expected
+
+
 def test_tokens_flag_reports_lexical_error(run_dump):
     source_file = FIXTURES_DIR / "fail_unknown_byte.mlang"
 
@@ -116,6 +143,17 @@ def test_tokens_flag_reports_lexical_error(run_dump):
 
 @pytest.mark.parametrize("case", VALID_CASES)
 def test_ast_flag_prints_tree(run_dump, case):
+    source_file = FIXTURES_DIR / f"{case}.mlang"
+    expected = (FIXTURES_DIR / f"{case}.ast").read_text().strip()
+
+    result = run_dump("--ast", source_file)
+
+    assert result.returncode == 0, f"expected success, got stderr: {result.stderr}"
+    assert result.stdout.strip() == expected
+
+
+@pytest.mark.parametrize("case", BLOCKS_AST_CASES)
+def test_ast_flag_prints_block_tree(run_dump, case):
     source_file = FIXTURES_DIR / f"{case}.mlang"
     expected = (FIXTURES_DIR / f"{case}.ast").read_text().strip()
 

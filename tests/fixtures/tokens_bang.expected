@@ -1,0 +1,10 @@
+d   ident     1:1
+:=  operator  1:3
+!   operator  1:6
+c   ident     1:7
+e   ident     2:1
+:=  operator  2:3
+a   ident     2:6
+!=  operator  2:7
+b   ident     2:9
+!   operator  3:1
