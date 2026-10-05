@@ -18,6 +18,9 @@ VALID_CASES = [
     "valid_no_spaces",
     "valid_chain",
     "valid_types_demo",
+    "valid_if_else",
+    "valid_scope_warmup",
+    "valid_not_operator",
 ]
 
 INVALID_CASES = [
@@ -33,15 +36,6 @@ INVALID_CASES = [
     "fail_division",
     "fail_colon_alone",
     "fail_equals_alone",
-]
-
-# Front end only (Task 1 of Practice 5): if/else, blocks and ! parse and dump
-# correctly. Compiling these programs needs the scope stack and the basic-block
-# code generation added in Tasks 2 and 3.
-BLOCKS_AST_CASES = [
-    "valid_scope_warmup",
-    "valid_if_else",
-    "valid_not_operator",
 ]
 
 # Semantic pass (Task 2 of Practice 4): these fail before code generation is
@@ -148,17 +142,6 @@ def test_tokens_flag_reports_lexical_error(run_dump):
 
 @pytest.mark.parametrize("case", VALID_CASES)
 def test_ast_flag_prints_tree(run_dump, case):
-    source_file = FIXTURES_DIR / f"{case}.mlang"
-    expected = (FIXTURES_DIR / f"{case}.ast").read_text().strip()
-
-    result = run_dump("--ast", source_file)
-
-    assert result.returncode == 0, f"expected success, got stderr: {result.stderr}"
-    assert result.stdout.strip() == expected
-
-
-@pytest.mark.parametrize("case", BLOCKS_AST_CASES)
-def test_ast_flag_prints_block_tree(run_dump, case):
     source_file = FIXTURES_DIR / f"{case}.mlang"
     expected = (FIXTURES_DIR / f"{case}.ast").read_text().strip()
 
