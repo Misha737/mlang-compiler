@@ -1,0 +1,10 @@
+bool b{false}
+while b
+{
+    exit 1
+}
+else
+{
+    exit 2
+}
+exit 0
