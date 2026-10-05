@@ -21,6 +21,12 @@ VALID_CASES = [
     "valid_if_else",
     "valid_scope_warmup",
     "valid_not_operator",
+    "valid_while_sum",
+    "valid_while_zero_iterations",
+    "valid_while_exit_in_body",
+    "valid_while_nested",
+    "valid_while_with_if",
+    "valid_while_decl_in_body",
 ]
 
 INVALID_CASES = [
@@ -57,6 +63,8 @@ SEMANTIC_ERROR_CASES = [
     "fail_use_after_block",
     "fail_redeclared_in_block",
     "fail_assign_shadowed_type",
+    "fail_while_condition_not_bool",
+    "fail_while_var_after_loop",
 ]
 
 SYNTAX_ERROR_CASES = [
@@ -83,6 +91,10 @@ SYNTAX_ERROR_CASES = [
     "fail_stmt_after_block_exit",
     "fail_if_eof",
     "fail_else_brace_same_line",
+    "fail_while_brace_same_line",
+    "fail_while_empty_body",
+    "fail_while_no_brace_line",
+    "fail_else_after_while",
 ]
 
 

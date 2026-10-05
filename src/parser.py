@@ -1,7 +1,7 @@
 from src.lexer import CompileError
 from src.ast_nodes import (
     ProgramNode, DeclNode, AssignNode, ExitNode,
-    BinOpNode, VarNode, ConstNode, BoolNode, IfNode, BlockNode, NotNode,
+    BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
@@ -77,6 +77,8 @@ class Parser:
         tok = self.peek()
         if self.at("keyword", "if"):
             return self.parse_if()
+        if self.at("keyword", "while"):
+            return self.parse_while()
         if self.at("keyword", "else"):
             raise CompileError(f"line {tok.line}:{tok.col}: 'else' without an 'if'")
         if self.at("keyword") and tok.text in TYPE_NAMES:
@@ -101,6 +103,13 @@ class Parser:
             self.expect_end_of_statement()
             else_block = self.parse_block(else_keyword)
         return IfNode(keyword.line, keyword.col, condition, then_block, else_block)
+
+    def parse_while(self):
+        keyword = self.eat()
+        condition = self.parse_expr()
+        self.expect_end_of_statement()
+        body = self.parse_block(keyword)
+        return WhileNode(keyword.line, keyword.col, condition, body)
 
     def parse_block(self, owner):
         following = self.peek_line()

@@ -49,6 +49,12 @@ class SemanticChecker:
         if node.else_block:
             node.else_block.accept(self)
 
+    def visit_while(self, node):
+        condition = node.condition.accept(self)
+        if condition != "bool":
+            raise error_at(node, f"the condition of 'while' must be bool, got {condition}")
+        node.body.accept(self)
+
     def visit_decl(self, node):
         if node.name in self.scopes[-1]:
             where = " in this block" if len(self.scopes) > 1 else ""

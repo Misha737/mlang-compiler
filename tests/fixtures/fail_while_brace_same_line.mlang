@@ -1,0 +1,5 @@
+i32 mut i{1}
+while i != 2 {
+    i := 2
+}
+exit i

@@ -21,6 +21,7 @@ KEYWORDS = {
     b"false": "keyword",
     b"if": "keyword",
     b"else": "keyword",
+    b"while": "keyword",
 }
 
 def is_alpha(b: int) -> bool:

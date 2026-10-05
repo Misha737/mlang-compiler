@@ -75,6 +75,22 @@ class IfNode(StmtNode):
         return visitor.visit_if(self)
 
 
+class WhileNode(StmtNode):
+    def __init__(self, line, col, condition, body):
+        super().__init__(line, col)
+        self.condition = condition
+        self.body = body
+
+    def label(self):
+        return "While"
+
+    def children(self):
+        return [self.condition, self.body]
+
+    def accept(self, visitor):
+        return visitor.visit_while(self)
+
+
 class BlockNode(Node):
     def __init__(self, line, col, statements, exit):
         super().__init__(line, col)
