@@ -33,7 +33,7 @@ class CodeGen:
         self.true_str = global_string(self.module, "true_str", "true")
         self.false_str = global_string(self.module, "false_str", "false")
 
-        self.symbols = {}
+        self.slots = {}
 
     def generate(self, program):
         program.accept(self)
@@ -54,13 +54,12 @@ class CodeGen:
         value = self.coerce(value, node.init.type, node.type_name)
         alloca = self.builder.alloca(LLVM_TYPES[node.type_name], name=node.name)
         self.builder.store(value, alloca)
-        self.symbols[node.name] = alloca
+        self.slots[node] = alloca
 
     def visit_assign(self, node):
         value = node.value.accept(self)
         value = self.coerce(value, node.value.type, node.decl.type_name)
-        alloca = self.symbols[node.name]
-        self.builder.store(value, alloca)
+        self.builder.store(value, self.slots[node.decl])
 
     def visit_exit(self, node):
         value = node.value.accept(self)
@@ -90,8 +89,7 @@ class CodeGen:
         return self.builder.icmp_signed(node.op, left, right)
 
     def visit_var(self, node):
-        alloca = self.symbols[node.name]
-        return self.builder.load(alloca)
+        return self.builder.load(self.slots[node.decl])
 
     def visit_const(self, node):
         return ir.Constant(LLVM_TYPES[node.type], node.value)
