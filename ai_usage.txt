@@ -3,3 +3,8 @@
 - AI was also used as an analyzer of potential errors in my code. I gave it my code and asked it to find weak spots and potential bugs.
 - AI was also used to implement some methods.
 - AI was also used to build tests (valid and fail) using pytest
+
+Чат:
+https://claude.ai/share/51f932e9-b9f6-4d38-8367-49eb73085a20
+
+Tools: Claude Pro
