@@ -17,6 +17,7 @@ VALID_CASES = [
     "valid_assign_expr",
     "valid_no_spaces",
     "valid_chain",
+    "valid_types_demo",
 ]
 
 INVALID_CASES = [
@@ -33,6 +34,23 @@ INVALID_CASES = [
     "fail_division",
     "fail_colon_alone",
     "fail_equals_alone",
+    "fail_bang_alone",
+]
+
+# Semantic pass (Task 2 of Practice 4): these fail before code generation is
+# ever reached, so they exercise the full CLI even though CodeGen cannot yet
+# handle i64/bool. See tests/test_semantic.py for the unit-level coverage of
+# every type rule, run without LLVM at all.
+SEMANTIC_ERROR_CASES = [
+    "fail_arith_bool",
+    "fail_compare_bool_int",
+    "fail_narrowing_binop",
+    "fail_narrowing_var",
+    "fail_narrowing_assign",
+    "fail_const_overflow_i32",
+    "fail_bool_from_int",
+    "fail_const_overflow_i64",
+    "fail_warm_up_narrowing",
 ]
 
 SYNTAX_ERROR_CASES = [
@@ -119,7 +137,7 @@ def test_ast_flag_reports_syntax_error(run_dump, case):
     assert result.stderr.strip() == expected
 
 
-@pytest.mark.parametrize("case", INVALID_CASES + SYNTAX_ERROR_CASES)
+@pytest.mark.parametrize("case", INVALID_CASES + SYNTAX_ERROR_CASES + SEMANTIC_ERROR_CASES)
 def test_invalid_program_fails(run_compiler, case):
     source_file = FIXTURES_DIR / f"{case}.mlang"
     expected = (FIXTURES_DIR / f"{case}.expected").read_text().strip()

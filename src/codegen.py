@@ -1,16 +1,23 @@
 from llvmlite import ir
 import llvmlite.binding as llvm
-from src.lexer import CompileError
 
 I32 = ir.IntType(32)
+I64 = ir.IntType(64)
+I1 = ir.IntType(1)
 I8 = ir.IntType(8)
 I8_PTR = ir.PointerType(I8)
 
+LLVM_TYPES = {"i32": I32, "i64": I64, "bool": I1}
 OPERATIONS = {"+": "add", "-": "sub", "*": "mul"}
 
 
-def error_at(node, message):
-    return CompileError(f"line {node.line}:{node.col}: {message}")
+def global_string(module, name, text):
+    data = text.encode() + b"\0"
+    const = ir.GlobalVariable(module, ir.ArrayType(I8, len(data)), name=name)
+    const.linkage = "private"
+    const.global_constant = True
+    const.initializer = ir.Constant(ir.ArrayType(I8, len(data)), bytearray(data))
+    return const
 
 
 class CodeGen:
@@ -21,17 +28,21 @@ class CodeGen:
         self.builder = ir.IRBuilder(main.append_basic_block("entry"))
         self.printf = ir.Function(self.module, ir.FunctionType(I32, [I8_PTR], var_arg=True), name="printf")
 
-        text = b"Program exit with result %d\n\0"
-        self.fmt = ir.GlobalVariable(self.module, ir.ArrayType(I8, len(text)), name="fmt")
-        self.fmt.linkage = "private"
-        self.fmt.global_constant = True
-        self.fmt.initializer = ir.Constant(ir.ArrayType(I8, len(text)), bytearray(text))
+        self.fmt_int = global_string(self.module, "fmt_int", "Program exit with result %lld\n")
+        self.fmt_bool = global_string(self.module, "fmt_bool", "Program exit with result %s\n")
+        self.true_str = global_string(self.module, "true_str", "true")
+        self.false_str = global_string(self.module, "false_str", "false")
 
-        self.symbols = {}
+        self.slots = {}
 
     def generate(self, program):
         program.accept(self)
         return self.module
+
+    def coerce(self, value, have, want):
+        if have == "i32" and want == "i64":
+            return self.builder.sext(value, I64, name="wide")
+        return value
 
     def visit_program(self, node):
         for statement in node.statements:
@@ -39,37 +50,49 @@ class CodeGen:
         node.exit.accept(self)
 
     def visit_decl(self, node):
-        if node.name in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is already declared")
         value = node.init.accept(self)
-        alloca = self.builder.alloca(I32, name=node.name)
+        value = self.coerce(value, node.init.type, node.type_name)
+        alloca = self.builder.alloca(LLVM_TYPES[node.type_name], name=node.name)
         self.builder.store(value, alloca)
-        self.symbols[node.name] = (alloca, node.mutable)
+        self.slots[node] = alloca
 
     def visit_assign(self, node):
-        if node.name not in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is used before its declaration")
-        alloca, mutable = self.symbols[node.name]
-        if not mutable:
-            raise error_at(node, f"cannot assign to '{node.name}': it is not mut")
         value = node.value.accept(self)
-        self.builder.store(value, alloca)
+        value = self.coerce(value, node.value.type, node.decl.type_name)
+        self.builder.store(value, self.slots[node.decl])
 
     def visit_exit(self, node):
         value = node.value.accept(self)
-        self.builder.call(self.printf, [self.builder.bitcast(self.fmt, I8_PTR), value])
+        if node.value.type == "bool":
+            true_ptr = self.builder.bitcast(self.true_str, I8_PTR)
+            false_ptr = self.builder.bitcast(self.false_str, I8_PTR)
+            text = self.builder.select(value, true_ptr, false_ptr)
+            fmt = self.builder.bitcast(self.fmt_bool, I8_PTR)
+            self.builder.call(self.printf, [fmt, text])
+        else:
+            value = self.coerce(value, node.value.type, "i64")
+            fmt = self.builder.bitcast(self.fmt_int, I8_PTR)
+            self.builder.call(self.printf, [fmt, value])
         self.builder.ret(ir.Constant(I32, 0))
 
     def visit_binop(self, node):
         left = node.left.accept(self)
         right = node.right.accept(self)
-        return getattr(self.builder, OPERATIONS[node.op])(left, right)
+        if node.op in OPERATIONS:
+            left = self.coerce(left, node.left.type, node.type)
+            right = self.coerce(right, node.right.type, node.type)
+            return getattr(self.builder, OPERATIONS[node.op])(left, right)
+        if node.left.type != "bool":
+            wide = "i64" if "i64" in (node.left.type, node.right.type) else "i32"
+            left = self.coerce(left, node.left.type, wide)
+            right = self.coerce(right, node.right.type, wide)
+        return self.builder.icmp_signed(node.op, left, right)
 
     def visit_var(self, node):
-        if node.name not in self.symbols:
-            raise error_at(node, f"variable '{node.name}' is used before its declaration")
-        alloca, _ = self.symbols[node.name]
-        return self.builder.load(alloca)
+        return self.builder.load(self.slots[node.decl])
 
     def visit_const(self, node):
-        return ir.Constant(I32, node.value)
+        return ir.Constant(LLVM_TYPES[node.type], node.value)
+
+    def visit_bool(self, node):
+        return ir.Constant(I1, 1 if node.value else 0)

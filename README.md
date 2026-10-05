@@ -33,12 +33,17 @@ compiler.py       # entry point: lexer -> parser -> code generation
 src/lexer.py          # hand-written state machine lexer
 src/parser.py         # hand-written recursive-descent parser
 src/ast_nodes.py      # AST node classes and the tree dump
-src/codegen.py        # visitor over the AST that emits LLVM IR and checks declarations
+src/semantic.py       # semantic pass: symbol table, type rules, moved out of code generation
+src/codegen.py        # visitor over the checked AST that emits LLVM IR (sext, icmp, select)
 grammar.ebnf      # EBNF grammar of the language
 tests/
   test_compiler.py
+  test_semantic.py    # the semantic pass tested directly, without LLVM
+  test_types_suite.py # auto-discovers every program under ok/ and err/
   conftest.py
   fixtures/       # .mlang source programs with their .expected outputs and .ast tree dumps
+  ok/             # programs that must compile and run, one feature each
+  err/            # programs that must be rejected, one rule each
 ```
 
 ## Running the compiler
