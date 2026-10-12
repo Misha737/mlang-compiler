@@ -117,6 +117,15 @@ class CodeGen:
         struct_type.set_body(*[self.llvm_type(field.type_name) for field in node.fields])
         self.struct_types[node.name] = struct_type
 
+    def visit_init(self, node):
+        if node.copy:
+            return node.values[0].accept(self)
+        aggregate = ir.Constant(self.struct_types[node.type], ir.Undefined)
+        for field, value in zip(node.struct.fields, node.values):
+            element = self.coerce(value.accept(self), value.type, field.type_name)
+            aggregate = self.builder.insert_value(aggregate, element, field.index)
+        return aggregate
+
     def visit_decl(self, node):
         value = node.init.accept(self)
         value = self.coerce(value, node.init.type, node.type_name)

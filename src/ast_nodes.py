@@ -289,6 +289,21 @@ class CallNode(ExprNode):
         return visitor.visit_call(self)
 
 
+class InitNode(ExprNode):
+    def __init__(self, line, col, values):
+        super().__init__(line, col)
+        self.values = values
+
+    def label(self):
+        return "Init"
+
+    def children(self):
+        return self.values
+
+    def accept(self, visitor):
+        return visitor.visit_init(self)
+
+
 class MemberNode(ExprNode):
     def __init__(self, line, col, name, links):
         super().__init__(line, col)

@@ -3,7 +3,7 @@ from src.ast_nodes import (
     ProgramNode, DeclNode, AssignNode, ExitNode,
     BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
     StructNode, FieldNode, ObjectDeclNode, FnNode, ParamNode, CallNode,
-    MemberNode, FieldAssignNode,
+    MemberNode, FieldAssignNode, InitNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
@@ -222,12 +222,18 @@ class Parser:
             raise CompileError(f"line {opening.line}:{opening.col}: empty block")
         return BlockNode(opening.line, opening.col, statements, exit_node)
 
+    def parse_value(self):
+        if self.at("lbrace"):
+            opening, values = self.parse_values()
+            return InitNode(opening.line, opening.col, values)
+        return self.parse_expr()
+
     def parse_values(self):
         opening = self.eat()
-        values = [self.parse_expr()]
+        values = [self.parse_value()]
         while self.at("comma"):
             self.eat()
-            values.append(self.parse_expr())
+            values.append(self.parse_value())
         self.expect("rbrace", "'}'")
         return opening, values
 
@@ -240,6 +246,9 @@ class Parser:
         if not self.at("lbrace"):
             raise CompileError(f"line {name.line}:{name.col}: variable '{name.text}' needs an initializer in {{}}")
         opening, values = self.parse_values()
+        for value in values:
+            if isinstance(value, InitNode):
+                raise CompileError(f"line {value.line}:{value.col}: type '{type_tok.text}' cannot be initialised with {{}}")
         if len(values) != 1:
             raise CompileError(f"line {opening.line}:{opening.col}: type '{type_tok.text}' takes 1 value in {{}}, got {len(values)}")
         return DeclNode(name.line, name.col, name.text, type_tok.text, mutable, values[0])

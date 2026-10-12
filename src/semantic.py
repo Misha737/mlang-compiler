@@ -1,5 +1,5 @@
 from src.lexer import CompileError
-from src.ast_nodes import ConstNode
+from src.ast_nodes import ConstNode, InitNode
 
 I32_MAX = 2 ** 31 - 1
 I64_MAX = 2 ** 63 - 1
@@ -84,10 +84,10 @@ class SemanticChecker:
                     return f"{field.name}.{inner}"
         return None
 
-    def check_value_count(self, node, struct):
-        if len(node.values) != len(struct.fields):
-            line, col = node.brace_pos
-            given = len(node.values)
+    def check_value_count(self, struct, values, brace_pos):
+        if len(values) != len(struct.fields):
+            line, col = brace_pos
+            given = len(values)
             verb = "value is" if given == 1 else "values are"
             raise CompileError(
                 f"line {line}:{col}: struct '{struct.name}' has {len(struct.fields)} fields, "
@@ -185,16 +185,31 @@ class SemanticChecker:
         self.check_known_type(node.type_name, node.type_pos)
         struct = self.structs[node.type_name]
         node.struct = struct
-        if len(node.values) != 1:
-            self.check_value_count(node, struct)
-        for value in node.values:
-            value.accept(self)
-        node.copy = len(node.values) == 1 and node.values[0].type == node.type_name
-        if not node.copy:
-            self.check_value_count(node, struct)
-            for field, value in zip(struct.fields, node.values):
-                self.check_assignable(value, field.type_name, value, f"initialise field '{field.name}'")
+        node.copy = self.check_initialiser(struct, node.values, node.brace_pos)
         self.scopes[-1][node.name] = node
+
+    def check_initialiser(self, struct, values, brace_pos):
+        if len(values) != 1:
+            self.check_value_count(struct, values, brace_pos)
+        for value in values:
+            if not isinstance(value, InitNode):
+                value.accept(self)
+        if len(values) == 1 and not isinstance(values[0], InitNode) and values[0].type == struct.name:
+            return True
+        self.check_value_count(struct, values, brace_pos)
+        for field, value in zip(struct.fields, values):
+            if isinstance(value, InitNode):
+                self.check_nested_init(value, field)
+            else:
+                self.check_assignable(value, field.type_name, value, f"initialise field '{field.name}'")
+        return False
+
+    def check_nested_init(self, node, field):
+        if field.type_name not in self.structs:
+            raise error_at(node, f"field '{field.name}' has type {field.type_name}, which cannot be initialised with {{}}")
+        node.struct = self.structs[field.type_name]
+        node.type = field.type_name
+        node.copy = self.check_initialiser(node.struct, node.values, (node.line, node.col))
 
     def visit_decl(self, node):
         if node.name in self.scopes[-1]:
