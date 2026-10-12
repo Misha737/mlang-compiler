@@ -2,6 +2,8 @@ from src.lexer import CompileError
 from src.ast_nodes import (
     ProgramNode, DeclNode, AssignNode, ExitNode,
     BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
+    StructNode, FieldNode, ObjectDeclNode, FnNode, ParamNode, CallNode,
+    MemberNode, FieldAssignNode, InitNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
@@ -53,12 +55,20 @@ class Parser:
         return last.line, last.col + len(last.text)
 
     def parse_program(self):
-        statements, exit_node = [], None
+        structs, functions, statements, exit_node = [], [], [], None
         while self.peek_line() is not None:
             self.next_line()
             if exit_node is not None:
                 raise CompileError(f"line {self.toks[0].line}:{self.toks[0].col}: code after exit is not allowed")
-            if self.at("keyword", "exit"):
+            if self.at("keyword", "struct"):
+                if functions or statements:
+                    self.fail_at_peek("'struct' must come before any function or statement")
+                structs.append(self.parse_struct())
+            elif self.at("keyword", "fn"):
+                if statements:
+                    self.fail_at_peek("'fn' must come before any statement")
+                functions.append(self.parse_fn())
+            elif self.at("keyword", "exit"):
                 exit_node = self.parse_exit_line()
             else:
                 statements.append(self.parse_statement())
@@ -66,7 +76,11 @@ class Parser:
             line, col = self.end_of_line() if self.lines else (1, 1)
             raise CompileError(f"line {line}:{col}: program must end with exit")
         first = self.lines[0][0]
-        return ProgramNode(first.line, first.col, statements, exit_node)
+        return ProgramNode(first.line, first.col, statements, exit_node, structs, functions)
+
+    def fail_at_peek(self, message):
+        tok = self.peek()
+        raise CompileError(f"line {tok.line}:{tok.col}: {message}")
 
     def expect_end_of_statement(self):
         tok = self.peek()
@@ -81,10 +95,12 @@ class Parser:
             return self.parse_while()
         if self.at("keyword", "else"):
             raise CompileError(f"line {tok.line}:{tok.col}: 'else' without an 'if'")
+        if self.at("keyword", "struct") or self.at("keyword", "fn"):
+            self.fail_at_peek(f"'{tok.text}' is not allowed inside a block")
         if self.at("keyword") and tok.text in TYPE_NAMES:
             node = self.parse_decl()
         elif self.at("ident"):
-            node = self.parse_assign()
+            node = self.parse_ident_statement()
         else:
             raise CompileError(f"line {tok.line}:{tok.col}: cannot start a statement with '{tok.text}'")
         self.expect_end_of_statement()
@@ -111,7 +127,7 @@ class Parser:
         body = self.parse_block(keyword)
         return WhileNode(keyword.line, keyword.col, condition, body)
 
-    def parse_block(self, owner):
+    def expect_open_brace(self, owner):
         following = self.peek_line()
         if following is None:
             line, col = self.end_of_line()
@@ -122,6 +138,69 @@ class Parser:
         self.next_line()
         opening = self.eat()
         self.expect_end_of_statement()
+        return opening
+
+    def parse_struct(self):
+        keyword = self.eat()
+        name = self.expect("ident", "a struct name")
+        self.expect_end_of_statement()
+        opening = self.expect_open_brace(keyword)
+        fields = []
+        while True:
+            if self.peek_line() is None:
+                raise CompileError(f"line {opening.line}:{opening.col}: '{{' is never closed")
+            self.next_line()
+            if self.at("rbrace"):
+                self.eat()
+                self.expect_end_of_statement()
+                break
+            fields.append(self.parse_field())
+        if not fields:
+            raise CompileError(f"line {opening.line}:{opening.col}: empty struct")
+        return StructNode(name.line, name.col, name.text, fields)
+
+    def parse_type_token(self, what):
+        tok = self.peek()
+        if self.at("ident") or (self.at("keyword") and tok.text in TYPE_NAMES):
+            return self.eat()
+        self.fail_expected(what)
+
+    def parse_fn(self):
+        keyword = self.eat()
+        name = self.expect("ident", "a function name")
+        self.expect("operator", "':=' after the function name", ":=")
+        self.expect("lparen", "'('")
+        params = []
+        if not self.at("rparen"):
+            params.append(self.parse_param())
+            while self.at("comma"):
+                self.eat()
+                params.append(self.parse_param())
+        self.expect("rparen", "')'")
+        self.expect("arrow", "'->'")
+        result_tok = self.parse_type_token("a result type")
+        self.expect_end_of_statement()
+        body = self.parse_block(keyword)
+        if body.exit is None:
+            raise CompileError(f"line {name.line}:{name.col}: function '{name.text}' must end with exit")
+        return FnNode(name.line, name.col, name.text, params, result_tok.text, (result_tok.line, result_tok.col), body)
+
+    def parse_param(self):
+        type_tok = self.parse_type_token("a parameter type")
+        name = self.expect("ident", "a parameter name")
+        return ParamNode(name.line, name.col, name.text, type_tok.text, (type_tok.line, type_tok.col))
+
+    def parse_field(self):
+        type_tok = self.parse_type_token("a field type")
+        mutable = self.at("keyword", "mut")
+        if mutable:
+            self.eat()
+        name = self.expect("ident", "a field name")
+        self.expect_end_of_statement()
+        return FieldNode(name.line, name.col, name.text, type_tok.text, mutable, (type_tok.line, type_tok.col))
+
+    def parse_block(self, owner):
+        opening = self.expect_open_brace(owner)
         statements, exit_node = [], None
         while True:
             following = self.peek_line()
@@ -143,6 +222,21 @@ class Parser:
             raise CompileError(f"line {opening.line}:{opening.col}: empty block")
         return BlockNode(opening.line, opening.col, statements, exit_node)
 
+    def parse_value(self):
+        if self.at("lbrace"):
+            opening, values = self.parse_values()
+            return InitNode(opening.line, opening.col, values)
+        return self.parse_expr()
+
+    def parse_values(self):
+        opening = self.eat()
+        values = [self.parse_value()]
+        while self.at("comma"):
+            self.eat()
+            values.append(self.parse_value())
+        self.expect("rbrace", "'}'")
+        return opening, values
+
     def parse_decl(self):
         type_tok = self.eat()
         mutable = self.at("keyword", "mut")
@@ -151,13 +245,40 @@ class Parser:
         name = self.expect("ident", "a variable name")
         if not self.at("lbrace"):
             raise CompileError(f"line {name.line}:{name.col}: variable '{name.text}' needs an initializer in {{}}")
-        self.eat()
-        init = self.parse_expr()
-        self.expect("rbrace", "'}'")
-        return DeclNode(name.line, name.col, name.text, type_tok.text, mutable, init)
+        opening, values = self.parse_values()
+        for value in values:
+            if isinstance(value, InitNode):
+                raise CompileError(f"line {value.line}:{value.col}: type '{type_tok.text}' cannot be initialised with {{}}")
+        if len(values) != 1:
+            raise CompileError(f"line {opening.line}:{opening.col}: type '{type_tok.text}' takes 1 value in {{}}, got {len(values)}")
+        return DeclNode(name.line, name.col, name.text, type_tok.text, mutable, values[0])
 
-    def parse_assign(self):
-        name = self.eat()
+    def parse_ident_statement(self):
+        first = self.eat()
+        if self.at("lparen"):
+            raise CompileError(f"line {first.line}:{first.col}: a call alone is not a statement")
+        if self.at("dot"):
+            target = self.parse_chain(first)
+            self.expect("operator", f"':=' after '{target.path}'", ":=")
+            return FieldAssignNode(first.line, first.col, target, self.parse_expr())
+        if self.at("ident") or self.at("keyword", "mut"):
+            return self.parse_object_decl(first)
+        return self.parse_assign(first)
+
+    def parse_object_decl(self, type_tok):
+        mutable = self.at("keyword", "mut")
+        if mutable:
+            self.eat()
+        name = self.expect("ident", "a variable name")
+        if not self.at("lbrace"):
+            raise CompileError(f"line {name.line}:{name.col}: variable '{name.text}' needs an initializer in {{}}")
+        opening, values = self.parse_values()
+        return ObjectDeclNode(
+            name.line, name.col, name.text, type_tok.text, mutable, values,
+            (type_tok.line, type_tok.col), (opening.line, opening.col),
+        )
+
+    def parse_assign(self, name):
         self.expect("operator", f"':=' after '{name.text}'", ":=")
         value = self.parse_expr()
         return AssignNode(name.line, name.col, name.text, value)
@@ -189,6 +310,25 @@ class Parser:
             node = BinOpNode(op.line, op.col, op.text, node, self.parse_factor())
         return node
 
+    def parse_chain(self, root):
+        links = []
+        while self.at("dot"):
+            self.eat()
+            link = self.expect("ident", "a field name")
+            links.append((link.text, link.line, link.col))
+        return MemberNode(root.line, root.col, root.text, links)
+
+    def parse_call(self, name):
+        self.eat()
+        args = []
+        if not self.at("rparen"):
+            args.append(self.parse_expr())
+            while self.at("comma"):
+                self.eat()
+                args.append(self.parse_expr())
+        self.expect("rparen", "')'")
+        return CallNode(name.line, name.col, name.text, args)
+
     def parse_factor(self):
         tok = self.peek()
         if self.at("number"):
@@ -199,6 +339,10 @@ class Parser:
             return BoolNode(tok.line, tok.col, tok.text == "true")
         if self.at("ident"):
             self.eat()
+            if self.at("lparen"):
+                return self.parse_call(tok)
+            if self.at("dot"):
+                return self.parse_chain(tok)
             return VarNode(tok.line, tok.col, tok.text)
         if self.at_operator("!"):
             self.eat()

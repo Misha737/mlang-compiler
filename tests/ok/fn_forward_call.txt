@@ -1,0 +1,10 @@
+fn a := (i32 n) -> i32
+{
+    exit b(n)
+}
+fn b := (i32 n) -> i32
+{
+    i32 r{n + 1}
+    exit r
+}
+exit a(1)

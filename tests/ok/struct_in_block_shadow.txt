@@ -1,0 +1,13 @@
+struct Point
+{
+    i32 mut x
+    i32 mut y
+}
+i32 x{1}
+if true
+{
+    Point x{3, 4}
+    Point y{x}
+    exit 6
+}
+exit 0

@@ -36,6 +36,8 @@ class CodeGen:
         self.false_str = global_string(self.module, "false_str", "false")
 
         self.slots = {}
+        self.struct_types = {}
+        self.functions = {}
 
     def generate(self, program):
         program.accept(self)
@@ -45,6 +47,9 @@ class CodeGen:
         if have == "i32" and want == "i64":
             return self.builder.sext(value, I64, name="wide")
         return value
+
+    def llvm_type(self, type_name):
+        return LLVM_TYPES.get(type_name) or self.struct_types[type_name]
 
     def alloca_in_entry(self, llvm_type, name):
         current = self.builder.block
@@ -57,15 +62,86 @@ class CodeGen:
         return self.last_slot
 
     def visit_program(self, node):
+        for struct in node.structs:
+            struct.accept(self)
+        for function in node.functions:
+            self.declare_function(function)
+        for function in node.functions:
+            function.accept(self)
         for statement in node.statements:
             statement.accept(self)
         node.exit.accept(self)
 
+    def declare_function(self, node):
+        signature = ir.FunctionType(
+            self.llvm_type(node.result_type),
+            [self.llvm_type(param.type_name) for param in node.params],
+        )
+        self.functions[node] = ir.Function(self.module, signature, name=f"fn.{node.name}")
+
+    def visit_fn(self, node):
+        function = self.functions[node]
+        saved = self.function, self.entry, self.builder, self.last_slot
+        self.function = function
+        self.entry = function.append_basic_block("entry")
+        self.builder = ir.IRBuilder(self.entry)
+        self.last_slot = None
+        for param, argument in zip(node.params, function.args):
+            argument.name = param.name
+            slot = self.alloca_in_entry(self.llvm_type(param.type_name), param.name)
+            self.builder.store(argument, slot)
+            self.slots[param] = slot
+        node.body.accept(self)
+        self.function, self.entry, self.builder, self.last_slot = saved
+
+    def member_pointer(self, node):
+        indices = [ir.Constant(I32, 0), *[ir.Constant(I32, field.index) for field in node.fields]]
+        return self.builder.gep(self.slots[node.decl], indices, inbounds=True)
+
+    def visit_member(self, node):
+        return self.builder.load(self.member_pointer(node))
+
+    def visit_field_assign(self, node):
+        value = self.coerce(node.value.accept(self), node.value.type, node.target.type)
+        self.builder.store(value, self.member_pointer(node.target))
+
+    def visit_call(self, node):
+        arguments = [
+            self.coerce(arg.accept(self), arg.type, param.type_name)
+            for arg, param in zip(node.args, node.function.params)
+        ]
+        return self.builder.call(self.functions[node.function], arguments)
+
+    def visit_struct(self, node):
+        struct_type = self.module.context.get_identified_type(node.name)
+        struct_type.set_body(*[self.llvm_type(field.type_name) for field in node.fields])
+        self.struct_types[node.name] = struct_type
+
+    def visit_init(self, node):
+        if node.copy:
+            return node.values[0].accept(self)
+        aggregate = ir.Constant(self.struct_types[node.type], ir.Undefined)
+        for field, value in zip(node.struct.fields, node.values):
+            element = self.coerce(value.accept(self), value.type, field.type_name)
+            aggregate = self.builder.insert_value(aggregate, element, field.index)
+        return aggregate
+
     def visit_decl(self, node):
         value = node.init.accept(self)
         value = self.coerce(value, node.init.type, node.type_name)
-        slot = self.alloca_in_entry(LLVM_TYPES[node.type_name], node.name)
+        slot = self.alloca_in_entry(self.llvm_type(node.type_name), node.name)
         self.builder.store(value, slot)
+        self.slots[node] = slot
+
+    def visit_object_decl(self, node):
+        slot = self.alloca_in_entry(self.llvm_type(node.type_name), node.name)
+        if node.copy:
+            self.builder.store(node.values[0].accept(self), slot)
+        else:
+            for field, value in zip(node.struct.fields, node.values):
+                element = self.coerce(value.accept(self), value.type, field.type_name)
+                pointer = self.builder.gep(slot, [ir.Constant(I32, 0), ir.Constant(I32, field.index)], inbounds=True)
+                self.builder.store(element, pointer)
         self.slots[node] = slot
 
     def visit_assign(self, node):
@@ -112,6 +188,9 @@ class CodeGen:
 
     def visit_exit(self, node):
         value = node.value.accept(self)
+        if node.function is not None:
+            self.builder.ret(self.coerce(value, node.value.type, node.function.result_type))
+            return
         if node.value.type == "bool":
             true_ptr = self.builder.bitcast(self.true_str, I8_PTR)
             false_ptr = self.builder.bitcast(self.false_str, I8_PTR)

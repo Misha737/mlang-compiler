@@ -1,0 +1,13 @@
+struct P
+{
+    i32 mut x
+}
+struct C
+{
+    P mut p
+    i32 mut r
+}
+P q{1}
+C mut c{q, 2}
+c.p.x := 99
+exit c.p.x
