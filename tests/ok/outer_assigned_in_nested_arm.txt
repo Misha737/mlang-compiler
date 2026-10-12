@@ -1,0 +1,11 @@
+i64 mut total{1}
+i32 step{2}
+if true
+{
+    if true
+    {
+        total := total + step
+    }
+    total := total * 10
+}
+exit total

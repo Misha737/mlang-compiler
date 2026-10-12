@@ -18,11 +18,19 @@ VALID_CASES = [
     "valid_no_spaces",
     "valid_chain",
     "valid_types_demo",
+    "valid_if_else",
+    "valid_scope_warmup",
+    "valid_not_operator",
+    "valid_while_sum",
+    "valid_while_zero_iterations",
+    "valid_while_exit_in_body",
+    "valid_while_nested",
+    "valid_while_with_if",
+    "valid_while_decl_in_body",
 ]
 
 INVALID_CASES = [
     "fail_unknown_byte",
-    "fail_unterminated_brace",
     "fail_assign_const",
     "fail_use_before_decl",
     "fail_missing_initializer",
@@ -34,7 +42,6 @@ INVALID_CASES = [
     "fail_division",
     "fail_colon_alone",
     "fail_equals_alone",
-    "fail_bang_alone",
 ]
 
 # Semantic pass (Task 2 of Practice 4): these fail before code generation is
@@ -51,6 +58,13 @@ SEMANTIC_ERROR_CASES = [
     "fail_bool_from_int",
     "fail_const_overflow_i64",
     "fail_warm_up_narrowing",
+    "fail_if_condition_not_bool",
+    "fail_not_on_integer",
+    "fail_use_after_block",
+    "fail_redeclared_in_block",
+    "fail_assign_shadowed_type",
+    "fail_while_condition_not_bool",
+    "fail_while_var_after_loop",
 ]
 
 SYNTAX_ERROR_CASES = [
@@ -67,6 +81,20 @@ SYNTAX_ERROR_CASES = [
     "fail_syntax_operator_after_brace",
     "fail_syntax_extra_operand",
     "fail_syntax_unary_minus",
+    "fail_unterminated_brace",
+    "fail_bang_statement",
+    "fail_if_no_brace_line",
+    "fail_if_brace_same_line",
+    "fail_empty_block",
+    "fail_else_without_if",
+    "fail_brace_never_closed",
+    "fail_stmt_after_block_exit",
+    "fail_if_eof",
+    "fail_else_brace_same_line",
+    "fail_while_brace_same_line",
+    "fail_while_empty_body",
+    "fail_while_no_brace_line",
+    "fail_else_after_while",
 ]
 
 
@@ -97,6 +125,16 @@ def test_valid_program_runs_with_expected_output(run_compiler, run_ir, case):
 def test_tokens_flag_prints_token_list(run_dump):
     source_file = FIXTURES_DIR / "tokens_worked_example.mlang"
     expected = (FIXTURES_DIR / "tokens_worked_example.expected").read_text().strip()
+
+    result = run_dump("--tokens", source_file)
+
+    assert result.returncode == 0, f"expected success, got stderr: {result.stderr}"
+    assert result.stdout.strip() == expected
+
+
+def test_tokens_flag_reads_bang_again_unless_followed_by_equals(run_dump):
+    source_file = FIXTURES_DIR / "tokens_bang.mlang"
+    expected = (FIXTURES_DIR / "tokens_bang.expected").read_text().strip()
 
     result = run_dump("--tokens", source_file)
 

@@ -1,0 +1,10 @@
+i32 mut i{1}
+while true
+{
+    i := i + 1
+    if i == 4
+    {
+        exit i
+    }
+}
+exit 0

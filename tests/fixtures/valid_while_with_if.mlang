@@ -1,0 +1,13 @@
+i32 mut i{1}
+i32 mut sum{0}
+bool mut take{true}
+while i != 6
+{
+    if take
+    {
+        sum := sum + i
+    }
+    take := !take
+    i := i + 1
+}
+exit sum

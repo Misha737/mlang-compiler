@@ -1,0 +1,6 @@
+bool c{false}
+if !c
+{
+    exit 7
+}
+exit 0

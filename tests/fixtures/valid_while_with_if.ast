@@ -1,0 +1,28 @@
+Program
+  Decl i i32 mut
+    Const 1
+  Decl sum i32 mut
+    Const 0
+  Decl take bool mut
+    Bool true
+  While
+    BinOp !=
+      Var i
+      Const 6
+    Block
+      If
+        Var take
+        Block
+          Assign sum
+            BinOp +
+              Var sum
+              Var i
+      Assign take
+        Not
+          Var take
+      Assign i
+        BinOp +
+          Var i
+          Const 1
+  Exit
+    Var sum

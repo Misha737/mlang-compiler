@@ -1,0 +1,5 @@
+i32 mut a{10}
+bool b{true}
+if b
+a := 1
+exit a
