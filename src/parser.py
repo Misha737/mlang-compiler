@@ -3,6 +3,7 @@ from src.ast_nodes import (
     ProgramNode, DeclNode, AssignNode, ExitNode,
     BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
     StructNode, FieldNode, ObjectDeclNode, FnNode, ParamNode, CallNode,
+    MemberNode, FieldAssignNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
@@ -247,6 +248,10 @@ class Parser:
         first = self.eat()
         if self.at("lparen"):
             raise CompileError(f"line {first.line}:{first.col}: a call alone is not a statement")
+        if self.at("dot"):
+            target = self.parse_chain(first)
+            self.expect("operator", f"':=' after '{target.path}'", ":=")
+            return FieldAssignNode(first.line, first.col, target, self.parse_expr())
         if self.at("ident") or self.at("keyword", "mut"):
             return self.parse_object_decl(first)
         return self.parse_assign(first)
@@ -296,6 +301,14 @@ class Parser:
             node = BinOpNode(op.line, op.col, op.text, node, self.parse_factor())
         return node
 
+    def parse_chain(self, root):
+        links = []
+        while self.at("dot"):
+            self.eat()
+            link = self.expect("ident", "a field name")
+            links.append((link.text, link.line, link.col))
+        return MemberNode(root.line, root.col, root.text, links)
+
     def parse_call(self, name):
         self.eat()
         args = []
@@ -319,6 +332,8 @@ class Parser:
             self.eat()
             if self.at("lparen"):
                 return self.parse_call(tok)
+            if self.at("dot"):
+                return self.parse_chain(tok)
             return VarNode(tok.line, tok.col, tok.text)
         if self.at_operator("!"):
             self.eat()

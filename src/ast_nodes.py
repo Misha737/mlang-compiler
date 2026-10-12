@@ -189,6 +189,22 @@ class ObjectDeclNode(StmtNode):
         return visitor.visit_object_decl(self)
 
 
+class FieldAssignNode(StmtNode):
+    def __init__(self, line, col, target, value):
+        super().__init__(line, col)
+        self.target = target
+        self.value = value
+
+    def label(self):
+        return f"Assign {self.target.path}"
+
+    def children(self):
+        return [self.value]
+
+    def accept(self, visitor):
+        return visitor.visit_field_assign(self)
+
+
 class AssignNode(StmtNode):
     def __init__(self, line, col, name, value):
         super().__init__(line, col)
@@ -271,6 +287,23 @@ class CallNode(ExprNode):
 
     def accept(self, visitor):
         return visitor.visit_call(self)
+
+
+class MemberNode(ExprNode):
+    def __init__(self, line, col, name, links):
+        super().__init__(line, col)
+        self.name = name
+        self.links = links
+
+    @property
+    def path(self):
+        return self.name + "".join(f".{link[0]}" for link in self.links)
+
+    def label(self):
+        return f"Member {self.path}"
+
+    def accept(self, visitor):
+        return visitor.visit_member(self)
 
 
 class VarNode(ExprNode):

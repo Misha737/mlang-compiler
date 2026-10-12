@@ -129,6 +129,43 @@ class SemanticChecker:
         node.type = function.result_type
         return node.type
 
+    def resolve_chain(self, node):
+        decl = self.lookup(node, node.name)
+        type_name = decl.type_name
+        path = node.name
+        fields = []
+        for name, line, col in node.links:
+            if type_name not in self.structs:
+                raise CompileError(
+                    f"line {line}:{col}: cannot access field '{name}': '{path}' has type {type_name}, which is not a struct"
+                )
+            field = next((f for f in self.structs[type_name].fields if f.name == name), None)
+            if field is None:
+                raise CompileError(f"line {line}:{col}: struct '{type_name}' has no field '{name}'")
+            fields.append(field)
+            type_name = field.type_name
+            path += f".{name}"
+        node.decl, node.fields, node.type = decl, fields, type_name
+        return node.type
+
+    def visit_member(self, node):
+        return self.resolve_chain(node)
+
+    def visit_field_assign(self, node):
+        target = node.target
+        type_name = self.resolve_chain(target)
+        if not target.decl.mutable:
+            raise error_at(target, f"cannot assign to '{target.path}': '{target.name}' is not mut")
+        for field, (_, line, col) in zip(target.fields, target.links):
+            if not field.mutable:
+                raise CompileError(f"line {line}:{col}: cannot assign to '{target.path}': field '{field.name}' is not mut")
+        if type_name not in BUILTIN_TYPES:
+            const_field = self.first_const_field(type_name)
+            if const_field:
+                raise error_at(node, f"cannot assign to '{target.path}': field '{const_field}' is not mut")
+        node.value.accept(self)
+        self.check_assignable(node.value, type_name, node, f"assign to '{target.path}'")
+
     def visit_struct(self, node):
         if node.name in self.structs:
             raise error_at(node, f"struct '{node.name}' is already declared")

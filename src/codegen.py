@@ -94,6 +94,17 @@ class CodeGen:
         node.body.accept(self)
         self.function, self.entry, self.builder, self.last_slot = saved
 
+    def member_pointer(self, node):
+        indices = [ir.Constant(I32, 0), *[ir.Constant(I32, field.index) for field in node.fields]]
+        return self.builder.gep(self.slots[node.decl], indices, inbounds=True)
+
+    def visit_member(self, node):
+        return self.builder.load(self.member_pointer(node))
+
+    def visit_field_assign(self, node):
+        value = self.coerce(node.value.accept(self), node.value.type, node.target.type)
+        self.builder.store(value, self.member_pointer(node.target))
+
     def visit_call(self, node):
         arguments = [
             self.coerce(arg.accept(self), arg.type, param.type_name)
