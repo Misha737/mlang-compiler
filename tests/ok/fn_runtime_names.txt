@@ -1,0 +1,10 @@
+fn main := () -> i32
+{
+    exit 4
+}
+fn printf := () -> i32
+{
+    exit 5
+}
+i32 s{main() + printf()}
+exit s

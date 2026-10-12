@@ -1,0 +1,6 @@
+fn big := (i64 n) -> i64
+{
+    i64 r{n * 3000000000}
+    exit r
+}
+exit big(2)
