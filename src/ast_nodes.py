@@ -20,9 +20,10 @@ class Node:
 
 
 class ProgramNode(Node):
-    def __init__(self, line, col, statements, exit, structs=None):
+    def __init__(self, line, col, statements, exit, structs=None, functions=None):
         super().__init__(line, col)
         self.structs = structs or []
+        self.functions = functions or []
         self.statements = statements
         self.exit = exit
 
@@ -30,7 +31,7 @@ class ProgramNode(Node):
         return "Program"
 
     def children(self):
-        return [*self.structs, *self.statements, self.exit]
+        return [*self.structs, *self.functions, *self.statements, self.exit]
 
     def accept(self, visitor):
         return visitor.visit_program(self)
@@ -62,6 +63,38 @@ class StructNode(Node):
 
     def accept(self, visitor):
         return visitor.visit_struct(self)
+
+
+class ParamNode(Node):
+    mutable = False
+
+    def __init__(self, line, col, name, type_name, type_pos):
+        super().__init__(line, col)
+        self.name = name
+        self.type_name = type_name
+        self.type_pos = type_pos
+
+    def label(self):
+        return f"Param {self.name} {self.type_name}"
+
+
+class FnNode(Node):
+    def __init__(self, line, col, name, params, result_type, result_pos, body):
+        super().__init__(line, col)
+        self.name = name
+        self.params = params
+        self.result_type = result_type
+        self.result_pos = result_pos
+        self.body = body
+
+    def label(self):
+        return f"Fn {self.name} {self.result_type}"
+
+    def children(self):
+        return [*self.params, self.body]
+
+    def accept(self, visitor):
+        return visitor.visit_fn(self)
 
 
 class StmtNode(Node):
@@ -176,6 +209,7 @@ class ExitNode(Node):
     def __init__(self, line, col, value):
         super().__init__(line, col)
         self.value = value
+        self.function = None
 
     def label(self):
         return "Exit"
@@ -221,6 +255,22 @@ class NotNode(ExprNode):
 
     def accept(self, visitor):
         return visitor.visit_not(self)
+
+
+class CallNode(ExprNode):
+    def __init__(self, line, col, name, args):
+        super().__init__(line, col)
+        self.name = name
+        self.args = args
+
+    def label(self):
+        return f"Call {self.name}"
+
+    def children(self):
+        return self.args
+
+    def accept(self, visitor):
+        return visitor.visit_call(self)
 
 
 class VarNode(ExprNode):

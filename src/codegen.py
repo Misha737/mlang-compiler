@@ -37,6 +37,7 @@ class CodeGen:
 
         self.slots = {}
         self.struct_types = {}
+        self.functions = {}
 
     def generate(self, program):
         program.accept(self)
@@ -63,9 +64,42 @@ class CodeGen:
     def visit_program(self, node):
         for struct in node.structs:
             struct.accept(self)
+        for function in node.functions:
+            self.declare_function(function)
+        for function in node.functions:
+            function.accept(self)
         for statement in node.statements:
             statement.accept(self)
         node.exit.accept(self)
+
+    def declare_function(self, node):
+        signature = ir.FunctionType(
+            self.llvm_type(node.result_type),
+            [self.llvm_type(param.type_name) for param in node.params],
+        )
+        self.functions[node] = ir.Function(self.module, signature, name=f"fn.{node.name}")
+
+    def visit_fn(self, node):
+        function = self.functions[node]
+        saved = self.function, self.entry, self.builder, self.last_slot
+        self.function = function
+        self.entry = function.append_basic_block("entry")
+        self.builder = ir.IRBuilder(self.entry)
+        self.last_slot = None
+        for param, argument in zip(node.params, function.args):
+            argument.name = param.name
+            slot = self.alloca_in_entry(self.llvm_type(param.type_name), param.name)
+            self.builder.store(argument, slot)
+            self.slots[param] = slot
+        node.body.accept(self)
+        self.function, self.entry, self.builder, self.last_slot = saved
+
+    def visit_call(self, node):
+        arguments = [
+            self.coerce(arg.accept(self), arg.type, param.type_name)
+            for arg, param in zip(node.args, node.function.params)
+        ]
+        return self.builder.call(self.functions[node.function], arguments)
 
     def visit_struct(self, node):
         struct_type = self.module.context.get_identified_type(node.name)
@@ -134,6 +168,9 @@ class CodeGen:
 
     def visit_exit(self, node):
         value = node.value.accept(self)
+        if node.function is not None:
+            self.builder.ret(self.coerce(value, node.value.type, node.function.result_type))
+            return
         if node.value.type == "bool":
             true_ptr = self.builder.bitcast(self.true_str, I8_PTR)
             false_ptr = self.builder.bitcast(self.false_str, I8_PTR)

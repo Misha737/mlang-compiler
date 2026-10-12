@@ -18,6 +18,8 @@ class SemanticChecker:
     def __init__(self):
         self.scopes = []  # frames, innermost last: name -> DeclNode
         self.structs = {}  # name -> StructNode
+        self.functions = {}  # name -> FnNode
+        self.current_function = None
 
     def check(self, program):
         program.accept(self)
@@ -32,6 +34,10 @@ class SemanticChecker:
     def visit_program(self, node):
         for struct in node.structs:
             struct.accept(self)
+        for function in node.functions:
+            self.declare_function(function)
+        for function in node.functions:
+            function.accept(self)
         self.scopes.append({})
         for statement in node.statements:
             statement.accept(self)
@@ -88,6 +94,41 @@ class SemanticChecker:
                 f"but {given} {verb} given in {{}}"
             )
 
+    def declare_function(self, node):
+        if node.name in self.functions:
+            raise error_at(node, f"function '{node.name}' is already declared")
+        seen = set()
+        for param in node.params:
+            if param.name in seen:
+                raise error_at(param, f"duplicate parameter '{param.name}' in function '{node.name}'")
+            seen.add(param.name)
+            self.check_known_type(param.type_name, param.type_pos)
+        self.check_known_type(node.result_type, node.result_pos)
+        self.functions[node.name] = node
+
+    def visit_fn(self, node):
+        saved = self.scopes, self.current_function
+        self.scopes = [{param.name: param for param in node.params}]
+        self.current_function = node
+        node.body.accept(self)
+        self.scopes, self.current_function = saved
+
+    def visit_call(self, node):
+        function = self.functions.get(node.name)
+        if function is None:
+            raise error_at(node, f"unknown function '{node.name}'")
+        if len(node.args) != len(function.params):
+            raise error_at(
+                node,
+                f"function '{node.name}' takes {len(function.params)} arguments, got {len(node.args)}",
+            )
+        for arg, param in zip(node.args, function.params):
+            arg.accept(self)
+            self.check_assignable(arg, param.type_name, arg, f"pass argument to parameter '{param.name}'")
+        node.function = function
+        node.type = function.result_type
+        return node.type
+
     def visit_struct(self, node):
         if node.name in self.structs:
             raise error_at(node, f"struct '{node.name}' is already declared")
@@ -140,8 +181,17 @@ class SemanticChecker:
 
     def visit_exit(self, node):
         value = node.value.accept(self)
-        if value not in BUILTIN_TYPES:
-            raise error_at(node, f"exit needs i32, i64 or bool, got {value}")
+        node.function = self.current_function
+        if self.current_function is None:
+            if value not in BUILTIN_TYPES:
+                raise error_at(node, f"exit needs i32, i64 or bool, got {value}")
+            return
+        want = self.current_function.result_type
+        if value != want and not (value == "i32" and want == "i64"):
+            raise error_at(
+                node,
+                f"function '{self.current_function.name}' returns {want}, but exit has a value of type {value}",
+            )
 
     def visit_binop(self, node):
         left, right = node.left.accept(self), node.right.accept(self)
