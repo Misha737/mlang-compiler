@@ -20,8 +20,9 @@ class Node:
 
 
 class ProgramNode(Node):
-    def __init__(self, line, col, statements, exit):
+    def __init__(self, line, col, statements, exit, structs=None):
         super().__init__(line, col)
+        self.structs = structs or []
         self.statements = statements
         self.exit = exit
 
@@ -29,10 +30,38 @@ class ProgramNode(Node):
         return "Program"
 
     def children(self):
-        return [*self.statements, self.exit]
+        return [*self.structs, *self.statements, self.exit]
 
     def accept(self, visitor):
         return visitor.visit_program(self)
+
+
+class FieldNode(Node):
+    def __init__(self, line, col, name, type_name, mutable, type_pos):
+        super().__init__(line, col)
+        self.name = name
+        self.type_name = type_name
+        self.mutable = mutable
+        self.type_pos = type_pos
+
+    def label(self):
+        return f"Field {self.name} {self.type_name} {'mut' if self.mutable else 'const'}"
+
+
+class StructNode(Node):
+    def __init__(self, line, col, name, fields):
+        super().__init__(line, col)
+        self.name = name
+        self.fields = fields
+
+    def label(self):
+        return f"Struct {self.name}"
+
+    def children(self):
+        return self.fields
+
+    def accept(self, visitor):
+        return visitor.visit_struct(self)
 
 
 class StmtNode(Node):
@@ -105,6 +134,26 @@ class BlockNode(Node):
 
     def accept(self, visitor):
         return visitor.visit_block(self)
+
+
+class ObjectDeclNode(StmtNode):
+    def __init__(self, line, col, name, type_name, mutable, values, type_pos, brace_pos):
+        super().__init__(line, col)
+        self.name = name
+        self.type_name = type_name
+        self.mutable = mutable
+        self.values = values
+        self.type_pos = type_pos
+        self.brace_pos = brace_pos
+
+    def label(self):
+        return f"Decl {self.name} {self.type_name} {'mut' if self.mutable else 'const'}"
+
+    def children(self):
+        return self.values
+
+    def accept(self, visitor):
+        return visitor.visit_object_decl(self)
 
 
 class AssignNode(StmtNode):

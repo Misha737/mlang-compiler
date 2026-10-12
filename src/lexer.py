@@ -22,6 +22,7 @@ KEYWORDS = {
     b"if": "keyword",
     b"else": "keyword",
     b"while": "keyword",
+    b"struct": "keyword",
 }
 
 def is_alpha(b: int) -> bool:
@@ -62,6 +63,7 @@ def lex(data: bytes):
             elif is_digit(b): state, start = "NUMBER", i
             elif b == ord("{"): tokens.append(Token("lbrace", "{", line, col))
             elif b == ord("}"): tokens.append(Token("rbrace", "}", line, col))
+            elif b == ord(","): tokens.append(Token("comma", ",", line, col))
             elif is_arithmetic(b): tokens.append(Token("operator", chr(b), line, col))
             elif b == ord(":"): state, start = "COLON", i
             elif b == ord("="): state, start = "EQ", i

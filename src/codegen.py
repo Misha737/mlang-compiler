@@ -36,6 +36,7 @@ class CodeGen:
         self.false_str = global_string(self.module, "false_str", "false")
 
         self.slots = {}
+        self.struct_types = {}
 
     def generate(self, program):
         program.accept(self)
@@ -45,6 +46,9 @@ class CodeGen:
         if have == "i32" and want == "i64":
             return self.builder.sext(value, I64, name="wide")
         return value
+
+    def llvm_type(self, type_name):
+        return LLVM_TYPES.get(type_name) or self.struct_types[type_name]
 
     def alloca_in_entry(self, llvm_type, name):
         current = self.builder.block
@@ -57,15 +61,33 @@ class CodeGen:
         return self.last_slot
 
     def visit_program(self, node):
+        for struct in node.structs:
+            struct.accept(self)
         for statement in node.statements:
             statement.accept(self)
         node.exit.accept(self)
 
+    def visit_struct(self, node):
+        struct_type = self.module.context.get_identified_type(node.name)
+        struct_type.set_body(*[self.llvm_type(field.type_name) for field in node.fields])
+        self.struct_types[node.name] = struct_type
+
     def visit_decl(self, node):
         value = node.init.accept(self)
         value = self.coerce(value, node.init.type, node.type_name)
-        slot = self.alloca_in_entry(LLVM_TYPES[node.type_name], node.name)
+        slot = self.alloca_in_entry(self.llvm_type(node.type_name), node.name)
         self.builder.store(value, slot)
+        self.slots[node] = slot
+
+    def visit_object_decl(self, node):
+        slot = self.alloca_in_entry(self.llvm_type(node.type_name), node.name)
+        if node.copy:
+            self.builder.store(node.values[0].accept(self), slot)
+        else:
+            for field, value in zip(node.struct.fields, node.values):
+                element = self.coerce(value.accept(self), value.type, field.type_name)
+                pointer = self.builder.gep(slot, [ir.Constant(I32, 0), ir.Constant(I32, field.index)], inbounds=True)
+                self.builder.store(element, pointer)
         self.slots[node] = slot
 
     def visit_assign(self, node):
