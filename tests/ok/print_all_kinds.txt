@@ -1,0 +1,23 @@
+struct A
+{
+    bool f
+    i64 big
+}
+struct B
+{
+    A a
+    i32 n
+    A b
+}
+A a{true, 5000000000}
+B b{a, 7, {false, 1}}
+i32 small{0 - 9}
+print(small)
+print(5000000000)
+print(true)
+print(false)
+print("100% sure, a\nb, {x} := 'q'")
+print(a)
+print(b)
+print(b.b)
+exit 0

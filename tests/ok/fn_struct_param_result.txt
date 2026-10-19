@@ -1,0 +1,13 @@
+struct Point
+{
+    i32 mut x
+    i32 mut y
+}
+fn id := (Point p) -> Point
+{
+    exit p
+}
+Point p{1, 2}
+Point mut r{id(p)}
+r := id(r)
+exit 8

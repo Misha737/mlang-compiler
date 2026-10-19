@@ -1,0 +1,19 @@
+struct S
+{
+    i32 v
+    fn show := () -> i32
+    {
+        print(v)
+        print("member")
+        exit v
+    }
+}
+fn hello := () -> i32
+{
+    print("fn")
+    exit 1
+}
+S s{5}
+i32 a{hello()}
+i32 b{s.show()}
+exit a

@@ -1,0 +1,8 @@
+struct W
+{
+    i64 mut big
+}
+i32 n{3}
+W mut w{1}
+w.big := n
+exit w.big

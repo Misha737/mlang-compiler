@@ -22,6 +22,10 @@ KEYWORDS = {
     b"if": "keyword",
     b"else": "keyword",
     b"while": "keyword",
+    b"struct": "keyword",
+    b"fn": "keyword",
+    b"read": "keyword",
+    b"print": "keyword",
 }
 
 def is_alpha(b: int) -> bool:
@@ -31,7 +35,7 @@ def is_digit(b: int) -> bool:
     return 0x30 <= b <= 0x39
 
 def is_arithmetic(b: int) -> bool:
-    return b in (ord("+"), ord("-"), ord("*"))
+    return b in (ord("+"), ord("*"))
 
 def format_tokens(lines):
     tokens = [token for line_tokens in lines for token in line_tokens]
@@ -62,6 +66,12 @@ def lex(data: bytes):
             elif is_digit(b): state, start = "NUMBER", i
             elif b == ord("{"): tokens.append(Token("lbrace", "{", line, col))
             elif b == ord("}"): tokens.append(Token("rbrace", "}", line, col))
+            elif b == ord(","): tokens.append(Token("comma", ",", line, col))
+            elif b == ord('"'): state, start = "STRING", i
+            elif b == ord("."): tokens.append(Token("dot", ".", line, col))
+            elif b == ord("("): tokens.append(Token("lparen", "(", line, col))
+            elif b == ord(")"): tokens.append(Token("rparen", ")", line, col))
+            elif b == ord("-"): state, start = "MINUS", i
             elif is_arithmetic(b): tokens.append(Token("operator", chr(b), line, col))
             elif b == ord(":"): state, start = "COLON", i
             elif b == ord("="): state, start = "EQ", i
@@ -80,6 +90,20 @@ def lex(data: bytes):
             else:
                 word = data[start:i]
                 tokens.append(Token("number", word.decode(), line, get_start_col()))
+                state = "START"; continue
+        elif state == "STRING":
+            if b is None or b == 10:
+                raise CompileError(f"line {line}:{get_start_col()}: string literal is not closed before the end of the line")
+            if b == ord('"'):
+                word = data[start:i + 1]
+                tokens.append(Token("string", word.decode("latin-1"), line, get_start_col()))
+                state = "START"
+        elif state == "MINUS":
+            if b == ord(">"):
+                tokens.append(Token("arrow", "->", line, get_start_col()))
+                state = "START"
+            else:
+                tokens.append(Token("operator", "-", line, get_start_col()))
                 state = "START"; continue
         elif state == "COLON":
             if b == ord("="):

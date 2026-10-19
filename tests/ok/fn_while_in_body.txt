@@ -1,0 +1,12 @@
+fn sum := (i32 n) -> i32
+{
+    i32 mut i{1}
+    i32 mut s{0}
+    while i != n + 1
+    {
+        s := s + i
+        i := i + 1
+    }
+    exit s
+}
+exit sum(10)

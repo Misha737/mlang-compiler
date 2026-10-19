@@ -1,0 +1,8 @@
+struct P
+{
+    i32 mut x
+}
+P mut a{1}
+P mut b{a}
+b.x := 50
+exit a.x

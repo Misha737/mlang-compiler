@@ -1,0 +1,1 @@
+compilation error: line 28:9: cannot call mutating function 'shift' through 'c.center': field 'center' is not mut

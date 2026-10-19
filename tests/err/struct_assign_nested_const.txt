@@ -1,0 +1,14 @@
+struct P
+{
+    i32 x
+}
+struct C
+{
+    P mut p
+    i32 mut r
+}
+P p{1}
+C mut a{p, 2}
+C b{p, 3}
+a := b
+exit 0
