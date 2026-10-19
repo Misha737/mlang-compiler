@@ -4,9 +4,11 @@ from src.ast_nodes import (
     BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
     StructNode, FieldNode, ObjectDeclNode, FnNode, ParamNode, CallNode,
     MemberNode, FieldAssignNode, InitNode, MemberFnNode, MemberCallNode,
+    PrintNode, StringNode, ReadNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
+RESERVED_NAMES = ("read", "print")
 
 class Parser:
     def __init__(self, lines):
@@ -48,6 +50,8 @@ class Parser:
         if tok is None:
             line, col = self.end_of_line()
             raise CompileError(f"line {line}:{col}: expected {what}, found end of line")
+        if tok.kind == "keyword" and tok.text in RESERVED_NAMES and what.endswith("name"):
+            raise CompileError(f"line {tok.line}:{tok.col}: '{tok.text}' is reserved and cannot be used as {what}")
         raise CompileError(f"line {tok.line}:{tok.col}: expected {what}, got '{tok.text}'")
 
     def end_of_line(self):
@@ -93,6 +97,15 @@ class Parser:
             return self.parse_if()
         if self.at("keyword", "while"):
             return self.parse_while()
+        if self.at("keyword", "print"):
+            return self.parse_print()
+        if self.at("keyword", "read"):
+            self.eat()
+            if self.at("lparen"):
+                raise CompileError(f"line {tok.line}:{tok.col}: a call alone is not a statement")
+            raise CompileError(f"line {tok.line}:{tok.col}: 'read' is reserved and cannot be used as a variable name")
+        if self.at("string"):
+            raise CompileError(f"line {tok.line}:{tok.col}: a string literal can only be the argument of print")
         if self.at("keyword", "else"):
             raise CompileError(f"line {tok.line}:{tok.col}: 'else' without an 'if'")
         if self.at("keyword", "struct") or self.at("keyword", "fn"):
@@ -119,6 +132,30 @@ class Parser:
             self.expect_end_of_statement()
             else_block = self.parse_block(else_keyword)
         return IfNode(keyword.line, keyword.col, condition, then_block, else_block)
+
+    def parse_print(self):
+        keyword = self.eat()
+        self.expect("lparen", "'('")
+        if self.at("rparen"):
+            raise CompileError(f"line {keyword.line}:{keyword.col}: print needs one argument")
+        if self.at("string"):
+            literal = self.eat()
+            arg = StringNode(literal.line, literal.col, literal.text[1:-1])
+        else:
+            arg = self.parse_expr()
+        if self.at("comma"):
+            raise CompileError(f"line {keyword.line}:{keyword.col}: print takes one argument")
+        self.expect("rparen", "')'")
+        self.expect_end_of_statement()
+        return PrintNode(keyword.line, keyword.col, arg)
+
+    def parse_read(self):
+        keyword = self.eat()
+        self.expect("lparen", "'('")
+        if not self.at("rparen"):
+            raise CompileError(f"line {keyword.line}:{keyword.col}: read takes no arguments")
+        self.eat()
+        return ReadNode(keyword.line, keyword.col)
 
     def parse_while(self):
         keyword = self.eat()
@@ -353,6 +390,12 @@ class Parser:
         if self.at("number"):
             self.eat()
             return ConstNode(tok.line, tok.col, int(tok.text))
+        if self.at("string"):
+            raise CompileError(f"line {tok.line}:{tok.col}: a string literal can only be the argument of print")
+        if self.at("keyword", "read"):
+            return self.parse_read()
+        if self.at("keyword", "print"):
+            raise CompileError(f"line {tok.line}:{tok.col}: print has no value")
         if self.at("keyword", "true") or self.at("keyword", "false"):
             self.eat()
             return BoolNode(tok.line, tok.col, tok.text == "true")

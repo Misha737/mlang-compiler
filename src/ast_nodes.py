@@ -214,6 +214,21 @@ class FieldAssignNode(StmtNode):
         return visitor.visit_field_assign(self)
 
 
+class PrintNode(StmtNode):
+    def __init__(self, line, col, arg):
+        super().__init__(line, col)
+        self.arg = arg
+
+    def label(self):
+        return "Print"
+
+    def children(self):
+        return [self.arg]
+
+    def accept(self, visitor):
+        return visitor.visit_print(self)
+
+
 class AssignNode(StmtNode):
     decl = None
     field = None
@@ -283,6 +298,26 @@ class NotNode(ExprNode):
 
     def accept(self, visitor):
         return visitor.visit_not(self)
+
+
+class StringNode(ExprNode):
+    def __init__(self, line, col, text):
+        super().__init__(line, col)
+        self.text = text
+
+    def label(self):
+        return f'String "{self.text}"'
+
+    def accept(self, visitor):
+        return visitor.visit_string(self)
+
+
+class ReadNode(ExprNode):
+    def label(self):
+        return "Read"
+
+    def accept(self, visitor):
+        return visitor.visit_read(self)
 
 
 class CallNode(ExprNode):

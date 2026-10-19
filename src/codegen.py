@@ -1,7 +1,7 @@
 from llvmlite import ir
 import llvmlite.binding as llvm
 
-from src.ast_nodes import MemberNode
+from src.ast_nodes import MemberNode, StringNode, VarNode
 
 I32 = ir.IntType(32)
 I64 = ir.IntType(64)
@@ -39,8 +39,11 @@ class CodeGen:
 
         self.slots = {}
         self.struct_types = {}
+        self.structs = {}
         self.functions = {}
         self.this = None
+        self.scanf = None
+        self.constants = {}
 
     def generate(self, program):
         program.accept(self)
@@ -165,7 +168,76 @@ class CodeGen:
             arguments.insert(0, self.this)
         return self.builder.call(self.functions[node.function], arguments)
 
+    def constant_string(self, text):
+        if text not in self.constants:
+            name = f"str.{len(self.constants)}"
+            data = text.encode("latin-1") + b"\0"
+            const = ir.GlobalVariable(self.module, ir.ArrayType(I8, len(data)), name=name)
+            const.linkage = "private"
+            const.global_constant = True
+            const.initializer = ir.Constant(ir.ArrayType(I8, len(data)), bytearray(data))
+            self.constants[text] = const
+        return self.builder.bitcast(self.constants[text], I8_PTR)
+
+    def printf_text(self, text, *arguments):
+        self.builder.call(self.printf, [self.constant_string(text), *arguments])
+
+    def bool_text(self, value):
+        true_ptr = self.builder.bitcast(self.true_str, I8_PTR)
+        false_ptr = self.builder.bitcast(self.false_str, I8_PTR)
+        return self.builder.select(value, true_ptr, false_ptr)
+
+    def value_pointer(self, node):
+        if isinstance(node, MemberNode):
+            return self.member_pointer(node)
+        if isinstance(node, VarNode):
+            return self.var_pointer(node)
+        slot = self.alloca_in_entry(self.llvm_type(node.type), "tmp")
+        self.builder.store(node.accept(self), slot)
+        return slot
+
+    def print_value(self, prefix, type_name, value, suffix=""):
+        if type_name == "bool":
+            self.printf_text(prefix + "%s" + suffix, self.bool_text(value))
+        elif type_name == "i64":
+            self.printf_text(prefix + "%lld" + suffix, value)
+        else:
+            self.printf_text(prefix + "%d" + suffix, value)
+
+    def print_struct(self, pointer, struct, closing):
+        self.printf_text(f"{struct.name}{{")
+        for position, field in enumerate(struct.fields):
+            prefix = ("" if position == 0 else ", ") + f"{field.name}: "
+            field_pointer = self.builder.gep(
+                pointer, [ir.Constant(I32, 0), ir.Constant(I32, field.index)], inbounds=True
+            )
+            if field.type_name in self.structs:
+                self.printf_text(prefix)
+                self.print_struct(field_pointer, self.structs[field.type_name], "}")
+            else:
+                self.print_value(prefix, field.type_name, self.builder.load(field_pointer))
+        self.printf_text(closing)
+
+    def visit_print(self, node):
+        arg = node.arg
+        if isinstance(arg, StringNode):
+            self.printf_text("%s\n", self.constant_string(arg.text))
+        elif arg.type in self.structs:
+            self.print_struct(self.value_pointer(arg), self.structs[arg.type], "}\n")
+        else:
+            self.print_value("", arg.type, arg.accept(self), "\n")
+
+    def visit_read(self, node):
+        if self.scanf is None:
+            signature = ir.FunctionType(I32, [I8_PTR], var_arg=True)
+            self.scanf = ir.Function(self.module, signature, name="scanf")
+        slot = self.alloca_in_entry(I32, "read")
+        self.builder.store(ir.Constant(I32, 0), slot)
+        self.builder.call(self.scanf, [self.constant_string("%d"), slot])
+        return self.builder.load(slot)
+
     def visit_struct(self, node):
+        self.structs[node.name] = node
         struct_type = self.module.context.get_identified_type(node.name)
         struct_type.set_body(*[self.llvm_type(field.type_name) for field in node.fields])
         self.struct_types[node.name] = struct_type

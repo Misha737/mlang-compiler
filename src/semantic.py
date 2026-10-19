@@ -1,5 +1,5 @@
 from src.lexer import CompileError
-from src.ast_nodes import ConstNode, InitNode, MemberNode
+from src.ast_nodes import ConstNode, InitNode, MemberNode, StringNode
 
 I32_MAX = 2 ** 31 - 1
 I64_MAX = 2 ** 63 - 1
@@ -389,6 +389,14 @@ class SemanticChecker:
         else:
             raise error_at(node, f"constant {node.value} does not fit in i64")
         return node.type
+
+    def visit_read(self, node):
+        node.type = "i32"
+        return node.type
+
+    def visit_print(self, node):
+        if not isinstance(node.arg, StringNode):
+            node.arg.accept(self)
 
     def visit_bool(self, node):
         node.type = "bool"
