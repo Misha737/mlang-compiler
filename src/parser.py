@@ -3,7 +3,7 @@ from src.ast_nodes import (
     ProgramNode, DeclNode, AssignNode, ExitNode,
     BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
     StructNode, FieldNode, ObjectDeclNode, FnNode, ParamNode, CallNode,
-    MemberNode, FieldAssignNode, InitNode,
+    MemberNode, FieldAssignNode, InitNode, MemberFnNode, MemberCallNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
@@ -145,7 +145,7 @@ class Parser:
         name = self.expect("ident", "a struct name")
         self.expect_end_of_statement()
         opening = self.expect_open_brace(keyword)
-        fields = []
+        fields, methods = [], []
         while True:
             if self.peek_line() is None:
                 raise CompileError(f"line {opening.line}:{opening.col}: '{{' is never closed")
@@ -154,10 +154,17 @@ class Parser:
                 self.eat()
                 self.expect_end_of_statement()
                 break
+            if self.at("keyword", "fn"):
+                if not fields:
+                    self.fail_at_peek("a member function cannot come before the first field")
+                methods.append(self.parse_fn(member=True))
+                continue
+            if methods:
+                self.fail_at_peek("a field cannot come after a member function")
             fields.append(self.parse_field())
         if not fields:
             raise CompileError(f"line {opening.line}:{opening.col}: empty struct")
-        return StructNode(name.line, name.col, name.text, fields)
+        return StructNode(name.line, name.col, name.text, fields, methods)
 
     def parse_type_token(self, what):
         tok = self.peek()
@@ -165,7 +172,7 @@ class Parser:
             return self.eat()
         self.fail_expected(what)
 
-    def parse_fn(self):
+    def parse_fn(self, member=False):
         keyword = self.eat()
         name = self.expect("ident", "a function name")
         self.expect("operator", "':=' after the function name", ":=")
@@ -183,7 +190,8 @@ class Parser:
         body = self.parse_block(keyword)
         if body.exit is None:
             raise CompileError(f"line {name.line}:{name.col}: function '{name.text}' must end with exit")
-        return FnNode(name.line, name.col, name.text, params, result_tok.text, (result_tok.line, result_tok.col), body)
+        node_class = MemberFnNode if member else FnNode
+        return node_class(name.line, name.col, name.text, params, result_tok.text, (result_tok.line, result_tok.col), body)
 
     def parse_param(self):
         type_tok = self.parse_type_token("a parameter type")
@@ -259,6 +267,8 @@ class Parser:
             raise CompileError(f"line {first.line}:{first.col}: a call alone is not a statement")
         if self.at("dot"):
             target = self.parse_chain(first)
+            if isinstance(target, MemberCallNode):
+                raise CompileError(f"line {first.line}:{first.col}: a call alone is not a statement")
             self.expect("operator", f"':=' after '{target.path}'", ":=")
             return FieldAssignNode(first.line, first.col, target, self.parse_expr())
         if self.at("ident") or self.at("keyword", "mut"):
@@ -315,10 +325,16 @@ class Parser:
         while self.at("dot"):
             self.eat()
             link = self.expect("ident", "a field name")
+            if self.at("lparen"):
+                if links:
+                    obj = MemberNode(root.line, root.col, root.text, links)
+                else:
+                    obj = VarNode(root.line, root.col, root.text)
+                return MemberCallNode(link.line, link.col, obj, link.text, self.parse_args())
             links.append((link.text, link.line, link.col))
         return MemberNode(root.line, root.col, root.text, links)
 
-    def parse_call(self, name):
+    def parse_args(self):
         self.eat()
         args = []
         if not self.at("rparen"):
@@ -327,7 +343,10 @@ class Parser:
                 self.eat()
                 args.append(self.parse_expr())
         self.expect("rparen", "')'")
-        return CallNode(name.line, name.col, name.text, args)
+        return args
+
+    def parse_call(self, name):
+        return CallNode(name.line, name.col, name.text, self.parse_args())
 
     def parse_factor(self):
         tok = self.peek()

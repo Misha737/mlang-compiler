@@ -46,20 +46,21 @@ class FieldNode(Node):
         self.type_pos = type_pos
 
     def label(self):
-        return f"Field {self.name} {self.type_name} {'mut' if self.mutable else 'const'}"
+        return f"Member {self.name} {self.type_name} {'mut' if self.mutable else 'const'}"
 
 
 class StructNode(Node):
-    def __init__(self, line, col, name, fields):
+    def __init__(self, line, col, name, fields, methods=None):
         super().__init__(line, col)
         self.name = name
         self.fields = fields
+        self.methods = methods or []
 
     def label(self):
         return f"Struct {self.name}"
 
     def children(self):
-        return self.fields
+        return [*self.fields, *self.methods]
 
     def accept(self, visitor):
         return visitor.visit_struct(self)
@@ -95,6 +96,14 @@ class FnNode(Node):
 
     def accept(self, visitor):
         return visitor.visit_fn(self)
+
+
+class MemberFnNode(FnNode):
+    def label(self):
+        return f"MemberFn {self.name} -> {self.result_type}"
+
+    def accept(self, visitor):
+        return visitor.visit_member_fn(self)
 
 
 class StmtNode(Node):
@@ -304,6 +313,23 @@ class InitNode(ExprNode):
         return visitor.visit_init(self)
 
 
+class MemberCallNode(ExprNode):
+    def __init__(self, line, col, obj, name, args):
+        super().__init__(line, col)
+        self.obj = obj
+        self.name = name
+        self.args = args
+
+    def label(self):
+        return f"MemberCall {self.name}"
+
+    def children(self):
+        return [self.obj, *self.args]
+
+    def accept(self, visitor):
+        return visitor.visit_member_call(self)
+
+
 class MemberNode(ExprNode):
     def __init__(self, line, col, name, links):
         super().__init__(line, col)
@@ -315,7 +341,7 @@ class MemberNode(ExprNode):
         return self.name + "".join(f".{link[0]}" for link in self.links)
 
     def label(self):
-        return f"Member {self.path}"
+        return f"Field {self.path}"
 
     def accept(self, visitor):
         return visitor.visit_member(self)

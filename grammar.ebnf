@@ -6,7 +6,7 @@
 (* Precedence, tightest first: factor (including "!"), term (*), arith (+ -), expr (== !=, at most one per expression). *)
 
 program   ::= { struct } { fn } { statement } exit
-struct    ::= "struct" ident NL "{" NL field_decl { field_decl } "}" NL
+struct    ::= "struct" ident NL "{" NL field_decl { field_decl } { fn } "}" NL          (* member functions come after the fields *)
 field_decl ::= type [ "mut" ] ident NL
 fn        ::= "fn" ident ":=" "(" [ type ident { "," type ident } ] ")" "->" type NL block
 statement ::= decl | assign | if | while
@@ -23,5 +23,6 @@ expr      ::= arith [ ( "==" | "!=" ) arith ]
 arith     ::= term { ( "+" | "-" ) term }
 term      ::= factor { "*" factor }
 field     ::= ident "." ident { "." ident }
+member_call ::= ident { "." ident } "." ident "(" [ expr { "," expr } ] ")"        (* the call ends the chain *)
 call      ::= ident "(" [ expr { "," expr } ] ")"
-factor    ::= number | "true" | "false" | ident | field | call | "!" factor
+factor    ::= number | "true" | "false" | ident | field | call | member_call | "!" factor
