@@ -183,3 +183,41 @@ def test_print_uses_one_printf_with_the_matching_format():
     for fmt in ('c"%d\\0a\\00"', 'c"%lld\\0a\\00"', 'c"%s\\0a\\00"'):
         assert fmt in text
     assert text.count("declare i32 @\"printf\"") == 1
+
+
+CHAIN = (
+    "struct Point\n{\n    i32 mut x\n    i32 mut y\n"
+    "    fn moved := (i32 dx) -> Point\n    {\n        Point q{x + dx, y}\n        exit q\n    }\n"
+    "    fn shift := (i32 dx) -> i32\n    {\n        x := x + dx\n        exit x\n    }\n}\n"
+)
+
+
+def test_a_field_of_a_call_result_is_an_extractvalue():
+    module = generate(CHAIN + "Point p{3, 4}\ni32 n{p.moved(1).y}\nexit n\n")
+    main = module.get_global("main")
+    assert any(i.opname == "extractvalue" for i in main.blocks[0].instructions)
+
+
+def test_a_member_call_on_a_call_result_passes_the_address_of_a_temporary():
+    module = generate(CHAIN + "Point p{3, 4}\ni32 n{p.moved(1).shift(2)}\nexit n\n")
+    main = module.get_global("main")
+    instructions = main.blocks[0].instructions
+    shift = next(i for i in instructions if isinstance(i, ir.CallInstr) and i.callee.name == "Point_shift")
+    assert isinstance(shift.args[0], ir.AllocaInstr) and shift.args[0].name.startswith("tmp")
+    assert shift.args[0] is not next(i for i in instructions if isinstance(i, ir.AllocaInstr) and i.name == "p")
+
+
+def test_a_mutating_call_on_a_call_result_is_allowed_on_a_const_object():
+    check(CHAIN + "Point p{3, 4}\ni32 n{p.moved(1).shift(2)}\nexit n\n")
+
+
+def test_a_dot_after_a_call_that_returns_a_scalar_is_rejected_at_the_dot():
+    source = CHAIN + "Point p{3, 4}\ni32 n{p.shift(1).x}\nexit n\n"
+    assert check_error(source) == \
+        "line 17:17: cannot access field 'x': the call returns i32, which is not a struct"
+
+
+def test_a_call_result_cannot_be_assigned_to():
+    with pytest.raises(CompileError) as exc_info:
+        check(CHAIN + "Point mut p{3, 4}\np.moved(1).x := 5\nexit 0\n")
+    assert str(exc_info.value) == "line 17:1: a call result cannot be the target of an assignment"

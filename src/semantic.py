@@ -1,5 +1,5 @@
 from src.lexer import CompileError
-from src.ast_nodes import ConstNode, InitNode, MemberNode, StringNode
+from src.ast_nodes import ConstNode, InitNode, MemberNode, StringNode, VarNode
 
 I32_MAX = 2 ** 31 - 1
 I64_MAX = 2 ** 63 - 1
@@ -198,20 +198,44 @@ class SemanticChecker:
         node.type = function.result_type
         return node.type
 
+    def visit_field_of(self, node):
+        type_name = node.base.accept(self)
+        fields = []
+        for index, (name, line, col) in enumerate(node.links):
+            if type_name not in self.structs:
+                if index == 0:
+                    line, col = node.line, node.col
+                    raise CompileError(
+                        f"line {line}:{col}: cannot access field '{name}': the call returns {type_name}, which is not a struct"
+                    )
+                raise CompileError(f"line {line}:{col}: cannot access field '{name}': the value has type {type_name}, which is not a struct")
+            field = next((f for f in self.structs[type_name].fields if f.name == name), None)
+            if field is None:
+                raise CompileError(f"line {line}:{col}: struct '{type_name}' has no field '{name}'")
+            fields.append(field)
+            type_name = field.type_name
+        node.fields, node.type = fields, type_name
+        return node.type
+
     def visit_member_call(self, node):
         obj = node.obj
-        if not isinstance(obj, MemberNode) and self.find_name(obj.name) is None and obj.name in self.structs:
+        is_place = isinstance(obj, (VarNode, MemberNode))
+        if isinstance(obj, VarNode) and self.find_name(obj.name) is None and obj.name in self.structs:
             raise error_at(obj, f"'{obj.name}' is a type: member functions are called on objects")
         type_name = obj.accept(self)
         if type_name not in self.structs:
-            raise error_at(node, f"type {type_name} has no member functions")
+            if is_place:
+                raise error_at(node, f"type {type_name} has no member functions")
+            line, col = node.dot_pos
+            raise CompileError(f"line {line}:{col}: type {type_name} has no member functions")
         method = self.find_method(self.structs[type_name], node.name)
         if method is None:
             raise error_at(node, f"struct '{type_name}' has no member function '{node.name}'")
         self.check_arguments(node, method, "member function")
-        if obj.field is not None:
-            self.current_function.this_calls.append(method)
-        self.call_sites.append((node, obj, method))
+        if is_place:
+            if obj.field is not None:
+                self.current_function.this_calls.append(method)
+            self.call_sites.append((node, obj, method))
         node.method = method
         node.type = method.result_type
         return node.type

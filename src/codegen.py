@@ -146,13 +146,14 @@ class CodeGen:
         value = self.coerce(node.value.accept(self), node.value.type, node.target.type)
         self.builder.store(value, self.member_pointer(node.target))
 
-    def object_pointer(self, obj):
-        if isinstance(obj, MemberNode):
-            return self.member_pointer(obj)
-        return self.var_pointer(obj)
+    def visit_field_of(self, node):
+        value = node.base.accept(self)
+        for field in node.fields:
+            value = self.builder.extract_value(value, field.index)
+        return value
 
     def visit_member_call(self, node):
-        pointer = self.object_pointer(node.obj)
+        pointer = self.value_pointer(node.obj)
         arguments = [
             self.coerce(arg.accept(self), arg.type, param.type_name)
             for arg, param in zip(node.args, node.method.params)

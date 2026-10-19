@@ -354,11 +354,12 @@ class InitNode(ExprNode):
 
 
 class MemberCallNode(ExprNode):
-    def __init__(self, line, col, obj, name, args):
+    def __init__(self, line, col, obj, name, args, dot_pos=None):
         super().__init__(line, col)
         self.obj = obj
         self.name = name
         self.args = args
+        self.dot_pos = dot_pos
 
     def label(self):
         return f"MemberCall {self.name}"
@@ -368,6 +369,22 @@ class MemberCallNode(ExprNode):
 
     def accept(self, visitor):
         return visitor.visit_member_call(self)
+
+
+class FieldOfNode(ExprNode):
+    def __init__(self, line, col, base, links):
+        super().__init__(line, col)
+        self.base = base
+        self.links = links
+
+    def label(self):
+        return "FieldOf " + ".".join(link[0] for link in self.links)
+
+    def children(self):
+        return [self.base]
+
+    def accept(self, visitor):
+        return visitor.visit_field_of(self)
 
 
 class MemberNode(ExprNode):

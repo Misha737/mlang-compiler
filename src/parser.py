@@ -4,7 +4,7 @@ from src.ast_nodes import (
     BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
     StructNode, FieldNode, ObjectDeclNode, FnNode, ParamNode, CallNode,
     MemberNode, FieldAssignNode, InitNode, MemberFnNode, MemberCallNode,
-    PrintNode, StringNode, ReadNode,
+    PrintNode, StringNode, ReadNode, FieldOfNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
@@ -155,7 +155,7 @@ class Parser:
         if not self.at("rparen"):
             raise CompileError(f"line {keyword.line}:{keyword.col}: read takes no arguments")
         self.eat()
-        return ReadNode(keyword.line, keyword.col)
+        return self.parse_postfix(ReadNode(keyword.line, keyword.col))
 
     def parse_while(self):
         keyword = self.eat()
@@ -306,6 +306,8 @@ class Parser:
             target = self.parse_chain(first)
             if isinstance(target, MemberCallNode):
                 raise CompileError(f"line {first.line}:{first.col}: a call alone is not a statement")
+            if not isinstance(target, MemberNode):
+                raise CompileError(f"line {first.line}:{first.col}: a call result cannot be the target of an assignment")
             self.expect("operator", f"':=' after '{target.path}'", ":=")
             return FieldAssignNode(first.line, first.col, target, self.parse_expr())
         if self.at("ident") or self.at("keyword", "mut"):
@@ -367,7 +369,7 @@ class Parser:
                     obj = MemberNode(root.line, root.col, root.text, links)
                 else:
                     obj = VarNode(root.line, root.col, root.text)
-                return MemberCallNode(link.line, link.col, obj, link.text, self.parse_args())
+                return self.parse_postfix(MemberCallNode(link.line, link.col, obj, link.text, self.parse_args()))
             links.append((link.text, link.line, link.col))
         return MemberNode(root.line, root.col, root.text, links)
 
@@ -383,7 +385,19 @@ class Parser:
         return args
 
     def parse_call(self, name):
-        return CallNode(name.line, name.col, name.text, self.parse_args())
+        return self.parse_postfix(CallNode(name.line, name.col, name.text, self.parse_args()))
+
+    def parse_postfix(self, node):
+        while self.at("dot"):
+            dot = self.eat()
+            link = self.expect("ident", "a field name")
+            if self.at("lparen"):
+                node = MemberCallNode(link.line, link.col, node, link.text, self.parse_args(), (dot.line, dot.col))
+            elif isinstance(node, FieldOfNode):
+                node.links.append((link.text, link.line, link.col))
+            else:
+                node = FieldOfNode(dot.line, dot.col, node, [(link.text, link.line, link.col)])
+        return node
 
     def parse_factor(self):
         tok = self.peek()

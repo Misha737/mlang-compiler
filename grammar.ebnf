@@ -25,7 +25,8 @@ expr      ::= arith [ ( "==" | "!=" ) arith ]
 arith     ::= term { ( "+" | "-" ) term }
 term      ::= factor { "*" factor }
 field     ::= ident "." ident { "." ident }
-member_call ::= ident { "." ident } "." ident "(" [ expr { "," expr } ] ")"        (* the call ends the chain *)
+member_call ::= ident { "." ident } "." ident "(" [ expr { "," expr } ] ")"
+call_chain ::= ( call | member_call ) { "." ident [ "(" [ expr { "," expr } ] ")" ] }     (* a "." after a call needs a struct result *)
 call      ::= ident "(" [ expr { "," expr } ] ")"
-factor    ::= number | "true" | "false" | ident | field | call | member_call | read | "!" factor
+factor    ::= number | "true" | "false" | ident | field | call_chain | read | "!" factor
 read      ::= "read" "(" ")"
