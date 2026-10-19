@@ -1,6 +1,8 @@
 from llvmlite import ir
 import llvmlite.binding as llvm
 
+from src.ast_nodes import MemberNode
+
 I32 = ir.IntType(32)
 I64 = ir.IntType(64)
 I1 = ir.IntType(1)
@@ -38,6 +40,7 @@ class CodeGen:
         self.slots = {}
         self.struct_types = {}
         self.functions = {}
+        self.this = None
 
     def generate(self, program):
         program.accept(self)
@@ -66,6 +69,12 @@ class CodeGen:
             struct.accept(self)
         for function in node.functions:
             self.declare_function(function)
+        for struct in node.structs:
+            for method in struct.methods:
+                self.declare_member_function(method)
+        for struct in node.structs:
+            for method in struct.methods:
+                method.accept(self)
         for function in node.functions:
             function.accept(self)
         for statement in node.statements:
@@ -79,24 +88,53 @@ class CodeGen:
         )
         self.functions[node] = ir.Function(self.module, signature, name=f"fn.{node.name}")
 
-    def visit_fn(self, node):
+    def declare_member_function(self, node):
+        this_type = ir.PointerType(self.struct_types[node.owner.name])
+        signature = ir.FunctionType(
+            self.llvm_type(node.result_type),
+            [this_type, *[self.llvm_type(param.type_name) for param in node.params]],
+        )
+        self.functions[node] = ir.Function(self.module, signature, name=f"{node.owner.name}_{node.name}")
+
+    def define_function(self, node, offset, this):
         function = self.functions[node]
-        saved = self.function, self.entry, self.builder, self.last_slot
+        saved = self.function, self.entry, self.builder, self.last_slot, self.this
         self.function = function
         self.entry = function.append_basic_block("entry")
         self.builder = ir.IRBuilder(self.entry)
         self.last_slot = None
-        for param, argument in zip(node.params, function.args):
+        self.this = this
+        for param, argument in zip(node.params, function.args[offset:]):
             argument.name = param.name
             slot = self.alloca_in_entry(self.llvm_type(param.type_name), param.name)
             self.builder.store(argument, slot)
             self.slots[param] = slot
         node.body.accept(self)
-        self.function, self.entry, self.builder, self.last_slot = saved
+        self.function, self.entry, self.builder, self.last_slot, self.this = saved
+
+    def visit_fn(self, node):
+        self.define_function(node, 0, None)
+
+    def visit_member_fn(self, node):
+        function = self.functions[node]
+        function.args[0].name = "this"
+        self.define_function(node, 1, function.args[0])
+
+    def var_pointer(self, node):
+        if node.field is not None:
+            indices = [ir.Constant(I32, 0), ir.Constant(I32, node.field.index)]
+            return self.builder.gep(self.this, indices, inbounds=True)
+        return self.slots[node.decl]
 
     def member_pointer(self, node):
-        indices = [ir.Constant(I32, 0), *[ir.Constant(I32, field.index) for field in node.fields]]
-        return self.builder.gep(self.slots[node.decl], indices, inbounds=True)
+        indices = [ir.Constant(I32, 0)]
+        if node.field is not None:
+            indices.append(ir.Constant(I32, node.field.index))
+            base = self.this
+        else:
+            base = self.slots[node.decl]
+        indices.extend(ir.Constant(I32, field.index) for field in node.fields)
+        return self.builder.gep(base, indices, inbounds=True)
 
     def visit_member(self, node):
         return self.builder.load(self.member_pointer(node))
@@ -105,11 +143,26 @@ class CodeGen:
         value = self.coerce(node.value.accept(self), node.value.type, node.target.type)
         self.builder.store(value, self.member_pointer(node.target))
 
+    def object_pointer(self, obj):
+        if isinstance(obj, MemberNode):
+            return self.member_pointer(obj)
+        return self.var_pointer(obj)
+
+    def visit_member_call(self, node):
+        pointer = self.object_pointer(node.obj)
+        arguments = [
+            self.coerce(arg.accept(self), arg.type, param.type_name)
+            for arg, param in zip(node.args, node.method.params)
+        ]
+        return self.builder.call(self.functions[node.method], [pointer, *arguments])
+
     def visit_call(self, node):
         arguments = [
             self.coerce(arg.accept(self), arg.type, param.type_name)
             for arg, param in zip(node.args, node.function.params)
         ]
+        if node.this_call:
+            arguments.insert(0, self.this)
         return self.builder.call(self.functions[node.function], arguments)
 
     def visit_struct(self, node):
@@ -146,8 +199,8 @@ class CodeGen:
 
     def visit_assign(self, node):
         value = node.value.accept(self)
-        value = self.coerce(value, node.value.type, node.decl.type_name)
-        self.builder.store(value, self.slots[node.decl])
+        value = self.coerce(value, node.value.type, node.target_type)
+        self.builder.store(value, self.var_pointer(node))
 
     def visit_block(self, node):
         for statement in node.statements:
@@ -220,7 +273,7 @@ class CodeGen:
         return self.builder.not_(node.operand.accept(self))
 
     def visit_var(self, node):
-        return self.builder.load(self.slots[node.decl])
+        return self.builder.load(self.var_pointer(node))
 
     def visit_const(self, node):
         return ir.Constant(LLVM_TYPES[node.type], node.value)

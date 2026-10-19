@@ -215,6 +215,9 @@ class FieldAssignNode(StmtNode):
 
 
 class AssignNode(StmtNode):
+    decl = None
+    field = None
+
     def __init__(self, line, col, name, value):
         super().__init__(line, col)
         self.name = name
@@ -283,6 +286,8 @@ class NotNode(ExprNode):
 
 
 class CallNode(ExprNode):
+    this_call = False
+
     def __init__(self, line, col, name, args):
         super().__init__(line, col)
         self.name = name
@@ -331,6 +336,9 @@ class MemberCallNode(ExprNode):
 
 
 class MemberNode(ExprNode):
+    decl = None
+    field = None
+
     def __init__(self, line, col, name, links):
         super().__init__(line, col)
         self.name = name
@@ -348,6 +356,9 @@ class MemberNode(ExprNode):
 
 
 class VarNode(ExprNode):
+    decl = None
+    field = None
+
     def __init__(self, line, col, name):
         super().__init__(line, col)
         self.name = name
