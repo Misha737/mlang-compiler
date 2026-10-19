@@ -1,0 +1,11 @@
+struct Acc
+{
+    i32 base
+    fn sum := (i32 a, i32 b) -> i32
+    {
+        i32 r{base + a + b}
+        exit r
+    }
+}
+Acc acc{1}
+exit acc.sum(2, 3)

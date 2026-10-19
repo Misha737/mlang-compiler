@@ -1,0 +1,14 @@
+i32 mut i{0}
+while i != 3
+{
+    if i == 1
+    {
+        print("one")
+    }
+    else
+    {
+        print(i)
+    }
+    i := i + 1
+}
+exit 0

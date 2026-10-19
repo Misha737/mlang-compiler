@@ -1,0 +1,19 @@
+struct S
+{
+    i32 v
+    fn g := () -> i32
+    {
+        exit 3
+    }
+    fn f := () -> i32
+    {
+        i32 r{g()}
+        exit r
+    }
+}
+fn g := () -> i32
+{
+    exit 100
+}
+S s{1}
+exit s.f()

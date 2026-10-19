@@ -1,0 +1,9 @@
+struct S
+{
+    i32 v
+    fn f := () -> bool
+    {
+        exit v
+    }
+}
+exit 0

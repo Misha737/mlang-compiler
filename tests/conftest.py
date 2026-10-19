@@ -43,14 +43,15 @@ def run_dump():
 def run_ir():
     """Runs a compiled .ll file with `lli` (the LLVM interpreter) and returns the CompletedProcess.
 
+    An optional stdin_file is passed to the program as its standard input.
     Skips the test if `lli` isn't installed, so the suite still runs on machines
     without a full LLVM toolchain.
     """
 
-    def _run(ll_file: Path):
+    def _run(ll_file: Path, stdin_file: Path = None):
         if shutil.which("lli") is None:
             pytest.skip("lli (LLVM interpreter) is not installed")
-        result = subprocess.run(["lli", str(ll_file)], capture_output=True, text=True)
-        return result
+        stdin_text = stdin_file.read_text() if stdin_file is not None else ""
+        return subprocess.run(["lli", str(ll_file)], input=stdin_text, capture_output=True, text=True)
 
     return _run

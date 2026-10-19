@@ -24,7 +24,7 @@ def global_string(module, name, text):
 
 class CodeGen:
     def __init__(self):
-        self.module = ir.Module(name="p1")
+        self.module = ir.Module(name="p1", context=ir.Context())
         self.module.triple = llvm.get_default_triple()
         self.function = ir.Function(self.module, ir.FunctionType(I32, []), name="main")
         self.entry = self.function.append_basic_block("entry")

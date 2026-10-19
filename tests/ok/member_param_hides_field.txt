@@ -1,0 +1,10 @@
+struct S
+{
+    i32 v
+    fn f := (i32 v) -> i32
+    {
+        exit v
+    }
+}
+S s{1}
+exit s.f(7)

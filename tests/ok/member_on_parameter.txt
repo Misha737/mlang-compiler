@@ -1,0 +1,15 @@
+struct P
+{
+    i32 x
+    fn get := () -> i32
+    {
+        exit x
+    }
+}
+fn f := (P p) -> i32
+{
+    i32 r{p.get()}
+    exit r
+}
+P p{9}
+exit f(p)

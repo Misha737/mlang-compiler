@@ -1,0 +1,15 @@
+struct S
+{
+    i32 v
+    fn twice := () -> i32
+    {
+        i32 r{once() + once()}
+        exit r
+    }
+    fn once := () -> i32
+    {
+        exit v
+    }
+}
+S s{25}
+exit s.twice()

@@ -1,0 +1,12 @@
+struct P
+{
+    i32 x
+    fn dbl := () -> P
+    {
+        P q{x + x}
+        exit q
+    }
+}
+P p{5}
+P r{p.dbl()}
+exit r.x
