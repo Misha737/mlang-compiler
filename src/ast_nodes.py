@@ -322,6 +322,7 @@ class ReadNode(ExprNode):
 
 class CallNode(ExprNode):
     this_call = False
+    rewritten = None
 
     def __init__(self, line, col, name, args):
         super().__init__(line, col)

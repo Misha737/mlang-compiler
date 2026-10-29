@@ -1,5 +1,5 @@
 from src.lexer import CompileError
-from src.ast_nodes import ConstNode, InitNode, MemberNode, StringNode, VarNode
+from src.ast_nodes import ConstNode, InitNode, MemberCallNode, MemberNode, StringNode, VarNode
 
 I32_MAX = 2 ** 31 - 1
 I64_MAX = 2 ** 63 - 1
@@ -181,7 +181,16 @@ class SemanticChecker:
             arg.accept(self)
             self.check_assignable(arg, param.type_name, arg, f"pass argument to parameter '{param.name}'")
 
+    def visit_callable_object(self, node):
+        obj = VarNode(node.line, node.col, node.name)
+        call = MemberCallNode(node.line, node.col, obj, "call", node.args, dot_pos=(node.line, node.col))
+        node.rewritten = call
+        node.type = call.accept(self)
+        return node.type
+
     def visit_call(self, node):
+        if self.find_name(node.name) is not None:
+            return self.visit_callable_object(node)
         method = self.find_method(self.current_struct, node.name) if self.current_struct is not None else None
         if method is not None:
             self.check_arguments(node, method, "member function")

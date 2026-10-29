@@ -161,6 +161,8 @@ class CodeGen:
         return self.builder.call(self.functions[node.method], [pointer, *arguments])
 
     def visit_call(self, node):
+        if node.rewritten is not None:
+            return node.rewritten.accept(self)
         arguments = [
             self.coerce(arg.accept(self), arg.type, param.type_name)
             for arg, param in zip(node.args, node.function.params)
