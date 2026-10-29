@@ -10,7 +10,8 @@ struct    ::= "struct" ident NL "{" NL field_decl { field_decl } { fn } "}" NL  
 field_decl ::= type [ "mut" ] ident NL
 fn        ::= "fn" ident ":=" "(" [ type ident { "," type ident } ] ")" "->" type NL block
 statement ::= decl | assign | if | while | print | lambda
-lambda    ::= "fn" ident ":=" "[" [ ident { "," ident } ] "]" "(" [ type ident { "," type ident } ] ")" "->" type NL block
+lambda    ::= "fn" ident ":=" "[" [ capture { "," capture } ] "]" "(" [ type ident { "," type ident } ] ")" "->" type NL block
+capture   ::= [ "mut" ] ident
 print     ::= "print" "(" ( string | expr ) ")"
 string    ::= '"' { any byte except '"' and newline } '"'                (* only as the argument of print *)
 decl      ::= type [ "mut" ] ident init                                  (* a built-in type takes one value, a struct one per field *)

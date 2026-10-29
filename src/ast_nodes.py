@@ -109,12 +109,13 @@ class FnNode(Node):
 
 
 class CaptureNode(Node):
-    def __init__(self, line, col, name):
+    def __init__(self, line, col, name, mutable=False):
         super().__init__(line, col)
         self.name = name
+        self.mutable = mutable
 
     def label(self):
-        return f"Capture {self.name}"
+        return f"Capture mut {self.name}" if self.mutable else f"Capture {self.name}"
 
 
 class MemberFnNode(FnNode):

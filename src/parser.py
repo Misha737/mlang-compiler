@@ -249,8 +249,11 @@ class Parser:
         return captures
 
     def parse_capture(self):
+        mutable = self.at("keyword", "mut")
+        if mutable:
+            self.eat()
         name = self.expect("ident", "a capture name")
-        return CaptureNode(name.line, name.col, name.text)
+        return CaptureNode(name.line, name.col, name.text, mutable)
 
     def parse_lambda(self):
         keyword = self.eat()

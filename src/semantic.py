@@ -456,7 +456,7 @@ class SemanticChecker:
         fields = []
         for index, (capture, variable) in enumerate(zip(node.captures, captured)):
             field = FieldNode(
-                capture.line, capture.col, capture.name, variable.type_name, False,
+                capture.line, capture.col, capture.name, variable.type_name, capture.mutable,
                 (capture.line, capture.col),
             )
             field.index = index
@@ -482,7 +482,7 @@ class SemanticChecker:
         for value in values:
             value.accept(self)
         decl = ObjectDeclNode(
-            node.line, node.col, node.name, struct_name, False, values,
+            node.line, node.col, node.name, struct_name, any(c.mutable for c in node.captures), values,
             (node.line, node.col), (node.line, node.col),
         )
         decl.struct = struct
