@@ -68,14 +68,15 @@ class CodeGen:
         return self.last_slot
 
     def visit_program(self, node):
-        for struct in node.structs:
+        all_structs = [*node.structs, *node.lambda_structs]
+        for struct in all_structs:
             struct.accept(self)
         for function in node.functions:
             self.declare_function(function)
-        for struct in node.structs:
+        for struct in all_structs:
             for method in struct.methods:
                 self.declare_member_function(method)
-        for struct in node.structs:
+        for struct in all_structs:
             for method in struct.methods:
                 method.accept(self)
         for function in node.functions:
@@ -158,7 +159,7 @@ class CodeGen:
             self.coerce(arg.accept(self), arg.type, param.type_name)
             for arg, param in zip(node.args, node.method.params)
         ]
-        return self.builder.call(self.functions[node.method], [pointer, *arguments])
+        return self.builder.call(self.functions[node.method], [pointer, *arguments], name="call.ret")
 
     def visit_call(self, node):
         if node.rewritten is not None:
@@ -271,6 +272,17 @@ class CodeGen:
                 pointer = self.builder.gep(slot, [ir.Constant(I32, 0), ir.Constant(I32, field.index)], inbounds=True)
                 self.builder.store(element, pointer)
         self.slots[node] = slot
+
+    def visit_lambda(self, node):
+        slot = self.alloca_in_entry(self.llvm_type(node.decl.type_name), node.name)
+        for index, (capture, value) in enumerate(zip(node.captures, node.decl.values)):
+            loaded = self.builder.load(self.var_pointer(value), name=f"{capture.name}.val")
+            pointer = self.builder.gep(
+                slot, [ir.Constant(I32, 0), ir.Constant(I32, index)],
+                inbounds=True, name=f"{node.name}.{index}.ptr",
+            )
+            self.builder.store(loaded, pointer)
+        self.slots[node.decl] = slot
 
     def visit_assign(self, node):
         value = node.value.accept(self)

@@ -1,7 +1,7 @@
 (* NL is the end of a line. The lexer delivers tokens grouped by line, so line ends are not tokens; blank lines are skipped. *)
 (* A simple statement is one line; an if is several: the condition line, the "{" line, every line of the block, the "}" line. *)
 (* A struct is several lines too: the "struct" line, the "{" line, one line per field, the "}" line. *)
-(* Terminals: "i32" "i64" "bool" "mut" "exit" "true" "false" "if" "else" "while" "struct" "fn" "read" "print" are keyword tokens, "{" is lbrace, "}" is rbrace, "," is comma, "(" is lparen, ")" is rparen, "->" is arrow, "." is dot, *)
+(* Terminals: "i32" "i64" "bool" "mut" "exit" "true" "false" "if" "else" "while" "struct" "fn" "read" "print" are keyword tokens, "{" is lbrace, "}" is rbrace, "," is comma, "[" is lbracket, "]" is rbracket, "(" is lparen, ")" is rparen, "->" is arrow, "." is dot, *)
 (* ":=" "+" "-" "*" "==" "!=" "!" are operator tokens, ident and number are ident and number tokens. *)
 (* Precedence, tightest first: factor (including "!"), term (*), arith (+ -), expr (== !=, at most one per expression). *)
 
@@ -9,7 +9,8 @@ program   ::= { struct } { fn } { statement } exit
 struct    ::= "struct" ident NL "{" NL field_decl { field_decl } { fn } "}" NL          (* member functions come after the fields *)
 field_decl ::= type [ "mut" ] ident NL
 fn        ::= "fn" ident ":=" "(" [ type ident { "," type ident } ] ")" "->" type NL block
-statement ::= decl | assign | if | while | print
+statement ::= decl | assign | if | while | print | lambda
+lambda    ::= "fn" ident ":=" "[" [ ident { "," ident } ] "]" "(" [ type ident { "," type ident } ] ")" "->" type NL block
 print     ::= "print" "(" ( string | expr ) ")"
 string    ::= '"' { any byte except '"' and newline } '"'                (* only as the argument of print *)
 decl      ::= type [ "mut" ] ident init                                  (* a built-in type takes one value, a struct one per field *)
