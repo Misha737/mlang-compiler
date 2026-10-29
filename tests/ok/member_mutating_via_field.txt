@@ -1,0 +1,21 @@
+struct A
+{
+    i32 mut n
+    fn inc := () -> i32
+    {
+        n := n + 1
+        exit n
+    }
+}
+struct B
+{
+    A mut a
+    fn go := () -> i32
+    {
+        i32 r{a.inc()}
+        exit r
+    }
+}
+A q{7}
+B mut b{q}
+exit b.go()

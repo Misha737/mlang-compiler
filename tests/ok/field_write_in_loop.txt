@@ -1,0 +1,16 @@
+struct Point
+{
+    i32 mut x
+    i32 mut y
+}
+struct Circle
+{
+    Point center
+    i32 mut radius
+}
+Point mut p{0, 0}
+while p.x != 10
+{
+    p.x := p.x + 1
+}
+exit p.x

@@ -1,0 +1,1 @@
+compilation error: line 37:18: struct 'Point' has no member function 'nope'

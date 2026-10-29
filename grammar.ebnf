@@ -1,14 +1,22 @@
 (* NL is the end of a line. The lexer delivers tokens grouped by line, so line ends are not tokens; blank lines are skipped. *)
 (* A simple statement is one line; an if is several: the condition line, the "{" line, every line of the block, the "}" line. *)
-(* Terminals: "i32" "i64" "bool" "mut" "exit" "true" "false" "if" "else" "while" are keyword tokens, "{" is lbrace, "}" is rbrace, *)
+(* A struct is several lines too: the "struct" line, the "{" line, one line per field, the "}" line. *)
+(* Terminals: "i32" "i64" "bool" "mut" "exit" "true" "false" "if" "else" "while" "struct" "fn" "read" "print" are keyword tokens, "{" is lbrace, "}" is rbrace, "," is comma, "(" is lparen, ")" is rparen, "->" is arrow, "." is dot, *)
 (* ":=" "+" "-" "*" "==" "!=" "!" are operator tokens, ident and number are ident and number tokens. *)
 (* Precedence, tightest first: factor (including "!"), term (*), arith (+ -), expr (== !=, at most one per expression). *)
 
-program   ::= { statement } exit
-statement ::= decl | assign | if | while
-decl      ::= type [ "mut" ] ident "{" expr "}"
-type      ::= "i32" | "i64" | "bool"
-assign    ::= ident ":=" expr
+program   ::= { struct } { fn } { statement } exit
+struct    ::= "struct" ident NL "{" NL field_decl { field_decl } { fn } "}" NL          (* member functions come after the fields *)
+field_decl ::= type [ "mut" ] ident NL
+fn        ::= "fn" ident ":=" "(" [ type ident { "," type ident } ] ")" "->" type NL block
+statement ::= decl | assign | if | while | print
+print     ::= "print" "(" ( string | expr ) ")"
+string    ::= '"' { any byte except '"' and newline } '"'                (* only as the argument of print *)
+decl      ::= type [ "mut" ] ident init                                  (* a built-in type takes one value, a struct one per field *)
+init      ::= "{" value { "," value } "}"
+value     ::= expr | init                                                (* an inner init only for a struct field *)
+type      ::= "i32" | "i64" | "bool" | ident                          (* ident: a struct declared above *)
+assign    ::= ident { "." ident } ":=" expr
 if        ::= "if" expr NL block [ "else" NL block ]
 while     ::= "while" expr NL block
 block     ::= "{" NL { statement } [ exit NL ] "}" NL          (* not empty *)
@@ -16,4 +24,9 @@ exit      ::= "exit" factor
 expr      ::= arith [ ( "==" | "!=" ) arith ]
 arith     ::= term { ( "+" | "-" ) term }
 term      ::= factor { "*" factor }
-factor    ::= number | "true" | "false" | ident | "!" factor
+field     ::= ident "." ident { "." ident }
+member_call ::= ident { "." ident } "." ident "(" [ expr { "," expr } ] ")"
+call_chain ::= ( call | member_call ) { "." ident [ "(" [ expr { "," expr } ] ")" ] }     (* a "." after a call needs a struct result *)
+call      ::= ident "(" [ expr { "," expr } ] ")"
+factor    ::= number | "true" | "false" | ident | field | call_chain | read | "!" factor
+read      ::= "read" "(" ")"

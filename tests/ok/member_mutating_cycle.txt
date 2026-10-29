@@ -1,0 +1,21 @@
+struct S
+{
+    i32 mut n
+    fn a := (i32 k) -> i32
+    {
+        if k == 0
+        {
+            n := n + 1
+            exit n
+        }
+        i32 r{b(k - 1)}
+        exit r
+    }
+    fn b := (i32 k) -> i32
+    {
+        i32 r{a(k)}
+        exit r
+    }
+}
+S mut s{1}
+exit s.b(0)

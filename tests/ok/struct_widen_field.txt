@@ -1,0 +1,7 @@
+struct Wide
+{
+    i64 big
+    bool flag
+}
+Wide w{5, true}
+exit 5

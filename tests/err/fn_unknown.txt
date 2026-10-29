@@ -1,0 +1,2 @@
+i32 x{foo(1)}
+exit x

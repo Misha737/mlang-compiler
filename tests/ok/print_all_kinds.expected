@@ -1,0 +1,9 @@
+-9
+5000000000
+true
+false
+100% sure, a\nb, {x} := 'q'
+A{f: true, big: 5000000000}
+B{a: A{f: true, big: 5000000000}, n: 7, b: A{f: false, big: 1}}
+A{f: false, big: 1}
+Program exit with result 0

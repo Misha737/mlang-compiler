@@ -1,0 +1,11 @@
+struct P
+{
+    i32 x
+    fn big := (i64 n) -> i64
+    {
+        i64 r{n * 5000000000}
+        exit r
+    }
+}
+P p{1}
+exit p.big(1)

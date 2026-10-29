@@ -1,0 +1,17 @@
+struct P
+{
+    i32 mut x
+}
+struct C
+{
+    P mut p
+    fn setx := (i32 v) -> i32
+    {
+        p.x := v
+        exit v
+    }
+}
+P q{1}
+C mut c{q}
+i32 r{c.setx(4)}
+exit c.p.x

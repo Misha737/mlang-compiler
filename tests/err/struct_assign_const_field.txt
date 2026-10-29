@@ -1,0 +1,9 @@
+struct P
+{
+    i32 x
+    i32 mut y
+}
+P mut a{1, 2}
+P b{3, 4}
+a := b
+exit 0

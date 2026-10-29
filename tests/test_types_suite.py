@@ -1,8 +1,10 @@
-"""Runs every program under tests/ok and tests/err (Task 3 of Practice 4).
+"""Runs every program under tests/ok and tests/err.
 
 Unlike tests/fixtures, these two directories are discovered automatically:
 dropping a new <name>.txt + <name>.expected pair in either one is enough,
-no list to edit here.
+no list to edit here. A program that reads input keeps it in <name>.in next to
+itself; it is passed as the standard input, and the whole standard output
+(the lines of print and the exit line) is compared with <name>.expected.
 """
 
 from pathlib import Path
@@ -30,7 +32,8 @@ def test_ok_program_compiles_and_runs(run_compiler, run_ir, case):
     assert result.returncode == 0, f"compilation failed: {result.stderr}"
     assert output_file.exists()
 
-    run_result = run_ir(output_file)
+    stdin_file = OK_DIR / f"{case}.in"
+    run_result = run_ir(output_file, stdin_file if stdin_file.exists() else None)
     assert run_result.returncode == 0
     assert run_result.stdout.strip() == expected
 

@@ -1,0 +1,5 @@
+struct A
+{
+    Foo f
+}
+exit 0

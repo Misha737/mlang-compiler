@@ -4,7 +4,30 @@
 - AI was also used to implement some methods.
 - AI was also used to build tests (valid and fail) using pytest
 
-Чат:
+Chat:
 https://claude.ai/share/51f932e9-b9f6-4d38-8367-49eb73085a20
 
 Tools: Claude Pro
+
+What was implemented using AI:
+    - class MemberCallNode(ExprNode)
+    - class FieldOfNode(ExprNode)
+    - class PrintNode(StmtNode)
+    - parse_struct()
+    - parse_call()
+    - parse_args()
+    - parse_postfix()
+    - parse_print()
+    - visit_member_call()
+    - visit_field_of()
+    - visit_call()
+    - visit_assign()
+    - visit_struct()
+    - finish_member_calls()
+    - check_mutable_chain()
+    - define_function()
+    - visit_fn()
+    - member_pointer()
+    - constant_string()
+    - print_struct()
+    - all tests

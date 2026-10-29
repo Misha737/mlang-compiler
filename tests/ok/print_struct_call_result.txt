@@ -1,0 +1,19 @@
+struct P
+{
+    i32 x
+    i32 y
+    fn swap := () -> P
+    {
+        P q{y, x}
+        exit q
+    }
+}
+fn mk := (i32 n) -> P
+{
+    P r{n, n + 1}
+    exit r
+}
+P p{1, 2}
+print(mk(5))
+print(p.swap())
+exit 0
