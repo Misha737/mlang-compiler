@@ -1,0 +1,14 @@
+fn make := (i32 base) -> i32
+{
+    fn add := [base](i32 y) -> i32
+    {
+        i32 r{base + y}
+        exit r
+    }
+    i32 a{add(1)}
+    i32 b{add(2)}
+    i32 r{a * 100 + b}
+    exit r
+}
+print(make(10))
+exit make(0)

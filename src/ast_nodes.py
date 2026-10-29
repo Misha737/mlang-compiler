@@ -12,10 +12,17 @@ class Node:
     def accept(self, visitor):
         raise NotImplementedError
 
-    def dump(self, depth=0):
-        rows = ["  " * depth + self.label()]
-        for child in self.children():
-            rows.append(child.dump(depth + 1))
+    def checked_label(self):
+        return self.label()
+
+    def checked_children(self):
+        return self.children()
+
+    def dump(self, depth=0, checked=False):
+        label = self.checked_label() if checked else self.label()
+        rows = ["  " * depth + label]
+        for child in (self.checked_children() if checked else self.children()):
+            rows.append(child.dump(depth + 1, checked))
         return "\n".join(rows)
 
 
@@ -23,6 +30,7 @@ class ProgramNode(Node):
     def __init__(self, line, col, statements, exit, structs=None, functions=None):
         super().__init__(line, col)
         self.structs = structs or []
+        self.lambda_structs = []
         self.functions = functions or []
         self.statements = statements
         self.exit = exit
@@ -38,6 +46,8 @@ class ProgramNode(Node):
 
 
 class FieldNode(Node):
+    capture = False
+
     def __init__(self, line, col, name, type_name, mutable, type_pos):
         super().__init__(line, col)
         self.name = name
@@ -98,6 +108,16 @@ class FnNode(Node):
         return visitor.visit_fn(self)
 
 
+class CaptureNode(Node):
+    def __init__(self, line, col, name, mutable=False):
+        super().__init__(line, col)
+        self.name = name
+        self.mutable = mutable
+
+    def label(self):
+        return f"Capture mut {self.name}" if self.mutable else f"Capture {self.name}"
+
+
 class MemberFnNode(FnNode):
     def label(self):
         return f"MemberFn {self.name} -> {self.result_type}"
@@ -108,6 +128,29 @@ class MemberFnNode(FnNode):
 
 class StmtNode(Node):
     pass
+
+
+class LambdaNode(StmtNode):
+    def __init__(self, line, col, name, captures, params, result_type, result_pos, body):
+        super().__init__(line, col)
+        self.name = name
+        self.captures = captures
+        self.params = params
+        self.result_type = result_type
+        self.result_pos = result_pos
+        self.body = body
+
+    def label(self):
+        return f"Lambda {self.name} -> {self.result_type}"
+
+    def children(self):
+        return [*self.captures, *self.params, self.body]
+
+    def checked_children(self):
+        return [self.struct, self.decl]
+
+    def accept(self, visitor):
+        return visitor.visit_lambda(self)
 
 
 class DeclNode(StmtNode):
@@ -322,6 +365,7 @@ class ReadNode(ExprNode):
 
 class CallNode(ExprNode):
     this_call = False
+    rewritten = None
 
     def __init__(self, line, col, name, args):
         super().__init__(line, col)
@@ -333,6 +377,9 @@ class CallNode(ExprNode):
 
     def children(self):
         return self.args
+
+    def checked_label(self):
+        return f"CallableCall {self.name}" if self.rewritten is not None else self.label()
 
     def accept(self, visitor):
         return visitor.visit_call(self)
@@ -354,6 +401,8 @@ class InitNode(ExprNode):
 
 
 class MemberCallNode(ExprNode):
+    rewritten = None
+
     def __init__(self, line, col, obj, name, args, dot_pos=None):
         super().__init__(line, col)
         self.obj = obj
@@ -363,6 +412,12 @@ class MemberCallNode(ExprNode):
 
     def label(self):
         return f"MemberCall {self.name}"
+
+    def checked_label(self):
+        return f"CallableCall {self.name}" if self.rewritten is not None else self.label()
+
+    def checked_children(self):
+        return self.rewritten.children() if self.rewritten is not None else self.children()
 
     def children(self):
         return [self.obj, *self.args]

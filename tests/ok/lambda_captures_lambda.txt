@@ -1,0 +1,14 @@
+i32 base{5}
+fn inner := [base](i32 y) -> i32
+{
+    i32 r{base + y}
+    exit r
+}
+fn outer := [inner](i32 z) -> i32
+{
+    i32 r{inner(z) * 2}
+    exit r
+}
+print(inner(1))
+print(outer(1))
+exit outer(2)

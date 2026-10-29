@@ -4,7 +4,7 @@ from src.ast_nodes import (
     BinOpNode, VarNode, ConstNode, BoolNode, IfNode, WhileNode, BlockNode, NotNode,
     StructNode, FieldNode, ObjectDeclNode, FnNode, ParamNode, CallNode,
     MemberNode, FieldAssignNode, InitNode, MemberFnNode, MemberCallNode,
-    PrintNode, StringNode, ReadNode, FieldOfNode,
+    PrintNode, StringNode, ReadNode, FieldOfNode, LambdaNode, CaptureNode,
 )
 
 TYPE_NAMES = ("i32", "i64", "bool")
@@ -68,6 +68,8 @@ class Parser:
                 if functions or statements:
                     self.fail_at_peek("'struct' must come before any function or statement")
                 structs.append(self.parse_struct())
+            elif self.at_lambda():
+                statements.append(self.parse_lambda())
             elif self.at("keyword", "fn"):
                 if statements:
                     self.fail_at_peek("'fn' must come before any statement")
@@ -108,6 +110,8 @@ class Parser:
             raise CompileError(f"line {tok.line}:{tok.col}: a string literal can only be the argument of print")
         if self.at("keyword", "else"):
             raise CompileError(f"line {tok.line}:{tok.col}: 'else' without an 'if'")
+        if self.at_lambda():
+            return self.parse_lambda()
         if self.at("keyword", "struct") or self.at("keyword", "fn"):
             self.fail_at_peek(f"'{tok.text}' is not allowed inside a block")
         if self.at("keyword") and tok.text in TYPE_NAMES:
@@ -213,6 +217,60 @@ class Parser:
         keyword = self.eat()
         name = self.expect("ident", "a function name")
         self.expect("operator", "':=' after the function name", ":=")
+        if member and self.at("lbracket"):
+            self.fail_at_peek("a member function cannot have a capture list")
+        params, result_tok = self.parse_signature()
+        self.expect_end_of_statement()
+        body = self.parse_block(keyword)
+        if body.exit is None:
+            raise CompileError(f"line {name.line}:{name.col}: function '{name.text}' must end with exit")
+        node_class = MemberFnNode if member else FnNode
+        return node_class(name.line, name.col, name.text, params, result_tok.text, (result_tok.line, result_tok.col), body)
+
+    def at_lambda(self):
+        ahead = self.toks[self.pos:self.pos + 4]
+        return (
+            len(ahead) == 4
+            and ahead[0].kind == "keyword" and ahead[0].text == "fn"
+            and ahead[1].kind == "ident"
+            and ahead[2].kind == "operator" and ahead[2].text == ":="
+            and ahead[3].kind == "lbracket"
+        )
+
+    def parse_captures(self):
+        self.expect("lbracket", "'['")
+        captures = []
+        if not self.at("rbracket"):
+            captures.append(self.parse_capture())
+            while self.at("comma"):
+                self.eat()
+                captures.append(self.parse_capture())
+        self.expect("rbracket", "']'")
+        return captures
+
+    def parse_capture(self):
+        mutable = self.at("keyword", "mut")
+        if mutable:
+            self.eat()
+        name = self.expect("ident", "a capture name")
+        return CaptureNode(name.line, name.col, name.text, mutable)
+
+    def parse_lambda(self):
+        keyword = self.eat()
+        name = self.expect("ident", "a lambda name")
+        self.expect("operator", "':=' after the lambda name", ":=")
+        captures = self.parse_captures()
+        params, result_tok = self.parse_signature()
+        self.expect_end_of_statement()
+        body = self.parse_block(keyword)
+        if body.exit is None:
+            raise CompileError(f"line {name.line}:{name.col}: lambda '{name.text}' must end with exit")
+        return LambdaNode(
+            name.line, name.col, name.text, captures, params,
+            result_tok.text, (result_tok.line, result_tok.col), body,
+        )
+
+    def parse_signature(self):
         self.expect("lparen", "'('")
         params = []
         if not self.at("rparen"):
@@ -222,13 +280,7 @@ class Parser:
                 params.append(self.parse_param())
         self.expect("rparen", "')'")
         self.expect("arrow", "'->'")
-        result_tok = self.parse_type_token("a result type")
-        self.expect_end_of_statement()
-        body = self.parse_block(keyword)
-        if body.exit is None:
-            raise CompileError(f"line {name.line}:{name.col}: function '{name.text}' must end with exit")
-        node_class = MemberFnNode if member else FnNode
-        return node_class(name.line, name.col, name.text, params, result_tok.text, (result_tok.line, result_tok.col), body)
+        return params, self.parse_type_token("a result type")
 
     def parse_param(self):
         type_tok = self.parse_type_token("a parameter type")

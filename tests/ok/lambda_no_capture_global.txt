@@ -1,0 +1,13 @@
+fn sq := (i32 v) -> i32
+{
+    i32 r{v * v}
+    exit r
+}
+i32 base{3}
+fn twice_sq := [](i32 v) -> i32
+{
+    i32 r{sq(v) * 2}
+    exit r
+}
+print(twice_sq(base))
+exit twice_sq(4)
