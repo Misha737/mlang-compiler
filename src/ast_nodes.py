@@ -400,6 +400,8 @@ class InitNode(ExprNode):
 
 
 class MemberCallNode(ExprNode):
+    rewritten = None
+
     def __init__(self, line, col, obj, name, args, dot_pos=None):
         super().__init__(line, col)
         self.obj = obj
@@ -409,6 +411,12 @@ class MemberCallNode(ExprNode):
 
     def label(self):
         return f"MemberCall {self.name}"
+
+    def checked_label(self):
+        return f"CallableCall {self.name}" if self.rewritten is not None else self.label()
+
+    def checked_children(self):
+        return self.rewritten.children() if self.rewritten is not None else self.children()
 
     def children(self):
         return [self.obj, *self.args]

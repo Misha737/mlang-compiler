@@ -125,14 +125,19 @@ class SemanticChecker:
     def check_mutable_chain(self, node, obj):
         path = obj.path if isinstance(obj, MemberNode) else obj.name
         head = f"cannot call mutating function '{node.name}'"
+        object_name = getattr(node, "object_name", None)
+        callable_message = f"cannot call '{object_name}': its 'call' changes it, and it is not mut"
         if obj.decl is not None and not obj.decl.mutable:
-            raise error_at(obj, f"{head} on '{path}': '{obj.name}' is not mut")
+            raise error_at(obj, callable_message if object_name else f"{head} on '{path}': '{obj.name}' is not mut")
         if obj.field is not None and not obj.field.mutable:
-            raise error_at(obj, f"{head} through '{path}': field '{obj.name}' is not mut")
+            raise error_at(
+                obj, callable_message if object_name else f"{head} through '{path}': field '{obj.name}' is not mut"
+            )
         if isinstance(obj, MemberNode):
             for field, (_, line, col) in zip(obj.fields, obj.links):
                 if not field.mutable:
-                    raise CompileError(f"line {line}:{col}: {head} through '{path}': field '{field.name}' is not mut")
+                    detail = callable_message if object_name else f"{head} through '{path}': field '{field.name}' is not mut"
+                    raise CompileError(f"line {line}:{col}: {detail}")
 
     def visit_block(self, node):
         self.scopes.append({})
@@ -231,7 +236,29 @@ class SemanticChecker:
                 )
             self.check_assignable(arg, param.type_name, arg, f"pass argument to parameter '{param.name}'")
 
+    def is_function_name(self, name):
+        if name in self.functions:
+            return True
+        return (
+            self.current_struct is not None
+            and not is_lambda_type(self.current_struct.name)
+            and self.find_method(self.current_struct, name) is not None
+        )
+
+    def check_callable(self, node):
+        decl, field = self.find_name(node.name)
+        type_name = (decl if decl is not None else field).type_name
+        if self.is_function_name(node.name):
+            raise error_at(node, f"'{node.name}' is both a variable and a function: rename one of them")
+        if type_name in BUILTIN_TYPES:
+            raise error_at(node, f"'{node.name}' is not callable: it is {type_name}")
+        if self.find_method(self.structs[type_name], "call") is None:
+            raise error_at(
+                node, f"'{node.name}' is not callable: {type_name} has no member function 'call'"
+            )
+
     def visit_callable_object(self, node):
+        self.check_callable(node)
         obj = VarNode(node.line, node.col, node.name)
         call = MemberCallNode(node.line, node.col, obj, "call", node.args, dot_pos=(node.line, node.col))
         call.object_name = node.name
@@ -291,6 +318,9 @@ class SemanticChecker:
             raise CompileError(f"line {line}:{col}: type {type_name} has no member functions")
         method = self.find_method(self.structs[type_name], node.name)
         if method is None:
+            field = next((f for f in self.structs[type_name].fields if f.name == node.name), None)
+            if field is not None and is_place:
+                return self.visit_callable_field(node, obj, field)
             raise error_at(node, f"struct '{type_name}' has no member function '{node.name}'")
         self.check_arguments(node, method, "member function")
         if is_place:
@@ -299,6 +329,23 @@ class SemanticChecker:
             self.call_sites.append((node, obj, method))
         node.method = method
         node.type = method.result_type
+        return node.type
+
+    def visit_callable_field(self, node, obj, field):
+        link = (node.name, node.line, node.col)
+        links = [*obj.links, link] if isinstance(obj, MemberNode) else [link]
+        target = MemberNode(obj.line, obj.col, obj.name, links)
+        if field.type_name in BUILTIN_TYPES:
+            raise error_at(node, f"'{target.path}' is not callable: it is {field.type_name}")
+        if self.find_method(self.structs[field.type_name], "call") is None:
+            raise error_at(
+                node,
+                f"'{target.path}' is not callable: {field.type_name} has no member function 'call'",
+            )
+        call = MemberCallNode(node.line, node.col, target, "call", node.args, dot_pos=node.dot_pos)
+        call.object_name = node.name
+        node.rewritten = call
+        node.type = call.accept(self)
         return node.type
 
     def resolve_chain(self, node):

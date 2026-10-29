@@ -154,6 +154,8 @@ class CodeGen:
         return value
 
     def visit_member_call(self, node):
+        if node.rewritten is not None:
+            return node.rewritten.accept(self)
         pointer = self.value_pointer(node.obj)
         arguments = [
             self.coerce(arg.accept(self), arg.type, param.type_name)
