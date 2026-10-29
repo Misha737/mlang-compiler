@@ -1,0 +1,8 @@
+i32 base{3}
+i32 acc{0}
+fn step := [base, mut acc](i32 y) -> i32
+{
+    base := base + 1
+    exit acc
+}
+exit 0

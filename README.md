@@ -39,6 +39,7 @@ grammar.ebnf      # EBNF grammar of the language
 tests/
   test_compiler.py
   test_semantic.py    # the semantic pass tested directly, without LLVM
+  test_lambdas.py     # lambdas: --ast / --ast-checked output and semantic rules
   test_types_suite.py # auto-discovers every program under ok/ and err/
   conftest.py
   fixtures/       # .mlang source programs with their .expected outputs and .ast tree dumps
@@ -62,6 +63,12 @@ To print the abstract syntax tree built by the parser instead of compiling:
 
 ```bash
 python3 compiler.py --ast input.mlang
+```
+
+To print the tree after the semantic pass (lambdas shown as their generated struct and declaration, callable-object calls as `CallableCall`):
+
+```bash
+python3 compiler.py --ast-checked input.mlang
 ```
 
 To run the generated IR directly, without linking:
