@@ -5,18 +5,20 @@ from src.semantic import SemanticChecker
 from src.codegen import CodeGen
 
 DUMP_FLAGS = ("--tokens", "--ast", "--ast-checked")
+REMOVE_UNUSED_FLAG = "--remove-unused"
 
 def parse_arguments():
     args = sys.argv[1:]
     flags = [arg for arg in args if arg in DUMP_FLAGS]
-    paths = [arg for arg in args if arg not in DUMP_FLAGS]
+    paths = [arg for arg in args if arg not in DUMP_FLAGS and arg != REMOVE_UNUSED_FLAG]
     if len(flags) > 1 or len(paths) != (1 if flags else 2):
-        print("usage: compiler.py input output.ll | compiler.py --tokens input | compiler.py --ast input | compiler.py --ast-checked input", file=sys.stderr)
+        print("usage: compiler.py [--remove-unused] input output.ll | compiler.py [--remove-unused] --tokens input | compiler.py [--remove-unused] --ast input | compiler.py [--remove-unused] --ast-checked input", file=sys.stderr)
         sys.exit(1)
     return {
         "source_path": paths[0],
         "output_path": None if flags else paths[1],
         "dump": flags[0] if flags else None,
+        "remove_unused": REMOVE_UNUSED_FLAG in args,
     }
 
 args = parse_arguments()
