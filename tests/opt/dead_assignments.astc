@@ -1,0 +1,9 @@
+Program
+  Decl keep i32 mut
+    Const 1
+  Assign keep
+    Const 2
+  Print
+    Var keep
+  Exit
+    Var keep
