@@ -12,6 +12,9 @@ class Node:
     def accept(self, visitor):
         raise NotImplementedError
 
+    def binding(self):
+        return None
+
     def checked_label(self):
         return self.label()
 
@@ -167,6 +170,9 @@ class DeclNode(StmtNode):
     def children(self):
         return [self.init]
 
+    def binding(self):
+        return self
+
     def accept(self, visitor):
         return visitor.visit_decl(self)
 
@@ -237,6 +243,9 @@ class ObjectDeclNode(StmtNode):
     def children(self):
         return self.values
 
+    def binding(self):
+        return self
+
     def accept(self, visitor):
         return visitor.visit_object_decl(self)
 
@@ -252,6 +261,9 @@ class FieldAssignNode(StmtNode):
 
     def children(self):
         return [self.value]
+
+    def binding(self):
+        return self.target.decl
 
     def accept(self, visitor):
         return visitor.visit_field_assign(self)
@@ -286,6 +298,9 @@ class AssignNode(StmtNode):
 
     def children(self):
         return [self.value]
+
+    def binding(self):
+        return self.decl
 
     def accept(self, visitor):
         return visitor.visit_assign(self)
