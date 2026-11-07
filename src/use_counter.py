@@ -29,6 +29,7 @@ class UseCounter:
         self.visit_all(node.methods)
 
     def visit_fn(self, node):
+        self.reads.setdefault(id(node), 0)
         node.body.accept(self)
 
     def visit_member_fn(self, node):
@@ -92,6 +93,7 @@ class UseCounter:
         if node.rewritten is not None:
             node.rewritten.accept(self)
         else:
+            self.read(node.function)
             self.visit_all(node.args)
 
     def visit_member_call(self, node):

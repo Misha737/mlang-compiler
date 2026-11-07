@@ -107,6 +107,9 @@ class FnNode(Node):
     def children(self):
         return [*self.params, self.body]
 
+    def binding(self):
+        return self
+
     def accept(self, visitor):
         return visitor.visit_fn(self)
 
