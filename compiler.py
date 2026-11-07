@@ -3,20 +3,23 @@ from src.lexer import lex, format_tokens, CompileError
 from src.parser import Parser
 from src.semantic import SemanticChecker
 from src.codegen import CodeGen
+from src.use_counter import remove_unused
 
-DUMP_FLAGS = ("--tokens", "--ast")
+DUMP_FLAGS = ("--tokens", "--ast", "--ast-checked")
+REMOVE_UNUSED_FLAG = "--remove-unused"
 
 def parse_arguments():
     args = sys.argv[1:]
     flags = [arg for arg in args if arg in DUMP_FLAGS]
-    paths = [arg for arg in args if arg not in DUMP_FLAGS]
+    paths = [arg for arg in args if arg not in DUMP_FLAGS and arg != REMOVE_UNUSED_FLAG]
     if len(flags) > 1 or len(paths) != (1 if flags else 2):
-        print("usage: compiler.py input output.ll | compiler.py --tokens input | compiler.py --ast input", file=sys.stderr)
+        print("usage: compiler.py [--remove-unused] input output.ll | compiler.py [--remove-unused] --tokens input | compiler.py [--remove-unused] --ast input | compiler.py [--remove-unused] --ast-checked input", file=sys.stderr)
         sys.exit(1)
     return {
         "source_path": paths[0],
         "output_path": None if flags else paths[1],
         "dump": flags[0] if flags else None,
+        "remove_unused": REMOVE_UNUSED_FLAG in args,
     }
 
 args = parse_arguments()
@@ -28,8 +31,11 @@ try:
     lines_tokens = lex(data)
     if dump != "--tokens":
         tree = Parser(lines_tokens).parse_program()
-        if dump is None:
+        if dump in (None, "--ast-checked"):
             SemanticChecker().check(tree)
+            if args["remove_unused"]:
+                tree = remove_unused(tree)
+        if dump is None:
             module = CodeGen().generate(tree)
 except CompileError as e:
     print(f"compilation error: {e}", file=sys.stderr)
@@ -39,6 +45,8 @@ if dump == "--tokens":
     print(format_tokens(lines_tokens))
 elif dump == "--ast":
     print(tree.dump())
+elif dump == "--ast-checked":
+    print(tree.dump(checked=True))
 else:
     with open(args["output_path"], "w", encoding="utf-8") as file:
         file.write(str(module))

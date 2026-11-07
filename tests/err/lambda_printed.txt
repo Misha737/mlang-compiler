@@ -1,0 +1,6 @@
+fn f := [](i32 v) -> i32
+{
+    exit v
+}
+print(f)
+exit 0

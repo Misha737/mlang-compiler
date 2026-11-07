@@ -1,0 +1,17 @@
+struct Box
+{
+    i32 n
+    fn run := (i32 a) -> i32
+    {
+        fn plus := [n](i32 y) -> i32
+        {
+            i32 r{n + y}
+            exit r
+        }
+        i32 v{plus(a)}
+        exit v
+    }
+}
+Box b{5}
+print(b.run(3))
+exit b.run(10)

@@ -1,0 +1,18 @@
+fn loud := (i32 a) -> i32
+{
+    print(a)
+    exit a
+}
+fn relay := (i32 a) -> i32
+{
+    i32 r{loud(a)}
+    exit r
+}
+fn quiet := (i32 a) -> i32
+{
+    i32 r{a + 1}
+    exit r
+}
+i32 x{relay(2)}
+i32 y{quiet(2)}
+exit 0

@@ -1,0 +1,14 @@
+i32 k{2}
+fn loud := [k](i32 v) -> i32
+{
+    print(v * k)
+    exit v
+}
+fn quiet := [k](i32 v) -> i32
+{
+    i32 r{v * k}
+    exit r
+}
+i32 a{loud(1)}
+i32 b{quiet(2)}
+exit 0

@@ -1,0 +1,13 @@
+fn add := (i32 a, i32 b) -> i32
+{
+    i32 s{a + b}
+    exit s
+}
+i32 x{4}
+i32 mut y{add(x, 6)}
+if y == 10
+{
+    y := y + 1
+}
+print(y)
+exit y

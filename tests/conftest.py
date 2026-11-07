@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sys
@@ -9,14 +10,29 @@ COMPILER_PATH = Path(__file__).parent.parent / "compiler.py"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--remove-unused",
+        action="store_true",
+        default=False,
+        help="compile every program with --remove-unused (same as REMOVE_UNUSED=1)",
+    )
+
+
 @pytest.fixture
-def run_compiler(tmp_path):
-    """Runs `python3 compiler.py <source> <output.ll>` and returns (CompletedProcess, output_path)."""
+def remove_unused(request):
+    return request.config.getoption("--remove-unused") or os.environ.get("REMOVE_UNUSED") == "1"
+
+
+@pytest.fixture
+def run_compiler(tmp_path, remove_unused):
+    """Runs `python3 compiler.py [--remove-unused] <source> <output.ll>` and returns (CompletedProcess, output_path)."""
 
     def _run(source_file: Path):
         output_file = tmp_path / "output.ll"
+        flags = ["--remove-unused"] if remove_unused else []
         result = subprocess.run(
-            [sys.executable, str(COMPILER_PATH), str(source_file), str(output_file)],
+            [sys.executable, str(COMPILER_PATH), *flags, str(source_file), str(output_file)],
             capture_output=True,
             text=True,
         )

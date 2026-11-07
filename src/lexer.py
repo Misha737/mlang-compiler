@@ -69,6 +69,8 @@ def lex(data: bytes):
             elif b == ord(","): tokens.append(Token("comma", ",", line, col))
             elif b == ord('"'): state, start = "STRING", i
             elif b == ord("."): tokens.append(Token("dot", ".", line, col))
+            elif b == ord("["): tokens.append(Token("lbracket", "[", line, col))
+            elif b == ord("]"): tokens.append(Token("rbracket", "]", line, col))
             elif b == ord("("): tokens.append(Token("lparen", "(", line, col))
             elif b == ord(")"): tokens.append(Token("rparen", ")", line, col))
             elif b == ord("-"): state, start = "MINUS", i

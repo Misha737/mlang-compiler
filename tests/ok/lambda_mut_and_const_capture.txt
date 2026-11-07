@@ -1,0 +1,11 @@
+i32 base{3}
+i32 acc{0}
+fn step := [base, mut acc](i32 y) -> i32
+{
+    acc := acc + base * y
+    exit acc
+}
+print(step(1))
+print(step(2))
+print(acc)
+exit base

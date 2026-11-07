@@ -1,0 +1,30 @@
+Program
+  Fn add i32
+    Param a i32
+    Param b i32
+    Block
+      Decl s i32 const
+        BinOp +
+          Var a
+          Var b
+      Exit
+        Var s
+  Decl x i32 const
+    Const 4
+  Decl y i32 mut
+    Call add
+      Var x
+      Const 6
+  If
+    BinOp ==
+      Var y
+      Const 10
+    Block
+      Assign y
+        BinOp +
+          Var y
+          Const 1
+  Print
+    Var y
+  Exit
+    Var y
