@@ -1,15 +1,14 @@
-from src.ast_nodes import CallNode, MemberCallNode, ReadNode
+from src.effects import functions_with_effects, has_effect
 from src.pruner import Pruner
-
-def has_call_or_read(node):
-    if isinstance(node, (CallNode, MemberCallNode, ReadNode)):
-        return True
-    return any(has_call_or_read(child) for child in node.children())
 
 
 class UseCounter:
-    def __init__(self):
+    def __init__(self, effects):
         self.reads = {}
+        self.effects = effects
+
+    def keeps(self, node):
+        return has_effect(node, self.effects)
 
     def read(self, decl):
         if decl is not None:
@@ -56,23 +55,23 @@ class UseCounter:
 
     def visit_decl(self, node):
         self.reads.setdefault(id(node), 0)
-        if has_call_or_read(node.init):
+        if self.keeps(node.init):
             self.read(node)
         node.init.accept(self)
 
     def visit_object_decl(self, node):
         self.reads.setdefault(id(node), 0)
-        if any(has_call_or_read(value) for value in node.values):
+        if any(self.keeps(value) for value in node.values):
             self.read(node)
         self.visit_all(node.values)
 
     def visit_assign(self, node):
-        if has_call_or_read(node.value):
+        if self.keeps(node.value):
             self.read(node.decl)
         node.value.accept(self)
 
     def visit_field_assign(self, node):
-        if has_call_or_read(node.value):
+        if self.keeps(node.value):
             self.read(node.target.decl)
         node.value.accept(self)
 
@@ -130,7 +129,7 @@ class UseCounter:
 
 def remove_unused(tree):
  while True:
-    counter = UseCounter();
+    counter = UseCounter(functions_with_effects(tree))
     tree.accept(counter)
     dead = {d for d, k in counter.reads.items() if k == 0}
     if not dead: return tree
