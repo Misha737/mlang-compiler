@@ -3,6 +3,7 @@ from src.lexer import lex, format_tokens, CompileError
 from src.parser import Parser
 from src.semantic import SemanticChecker
 from src.codegen import CodeGen
+from src.use_counter import remove_unused
 
 DUMP_FLAGS = ("--tokens", "--ast", "--ast-checked")
 REMOVE_UNUSED_FLAG = "--remove-unused"
@@ -32,6 +33,8 @@ try:
         tree = Parser(lines_tokens).parse_program()
         if dump in (None, "--ast-checked"):
             SemanticChecker().check(tree)
+            if args["remove_unused"]:
+                tree = remove_unused(tree)
         if dump is None:
             module = CodeGen().generate(tree)
 except CompileError as e:
