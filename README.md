@@ -85,6 +85,19 @@ clang -fPIE output.o -o program
 ./program
 ```
 
+## Optimizations
+
+`--remove-unused` removes variables nobody reads and global functions nobody calls. It runs on the checked tree, after the semantic pass and before code generation, and repeats until a round removes nothing.
+
+```bash
+python3 compiler.py --remove-unused input.mlang output.ll
+python3 compiler.py --remove-unused --ast-checked input.mlang
+```
+
+A variable that only feeds itself, `k := k + 1` with nobody else reading `k`, survives: the right side reads it. This is a limit of counting, not a bug. For the same reason two functions that only call each other stay.
+
+Who frees a removed subtree: the compiler is written in Python, whose memory model is reference counting plus a cycle collector. A node nobody points at any more is freed the moment its last reference goes away, and the pass drops the references by rebuilding the statement lists. Nodes keep no pointer back to their parent, so a plain subtree has no cycle. The checker does add links that point back up, `ExitNode.function` and `method.owner`; with them a removed function (function, body, exit, function) is a cycle, and its count never reaches zero by itself. It waits for the cycle collector. Measured with `weakref.ref` in `tests/test_opt_memory.py`, collector off during the pass: a removed declaration is gone right after the pass, a removed function is still alive and is gone only after `gc.collect()`. Nothing is freed in the compiled program: the language has no heap yet.
+
 ## Running the tests
 
 Install `pytest`:
